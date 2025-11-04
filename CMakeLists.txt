@@ -25,6 +25,10 @@ find_package(OpenCV 4.6 REQUIRED) # In Ubuntu 24.04 4.6 or greater is required
 find_package(Eigen3 3.3.0 REQUIRED) # Matched with Sophus
 find_package(Pangolin REQUIRED)
 find_package(image_transport REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(cv_bridge REQUIRED)
 
 
 # Header file locations [C++ node]
@@ -57,6 +61,10 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   OpenCV
   Eigen3
   Pangolin
+  geometry_msgs
+  nav_msgs
+  tf2_ros
+  cv_bridge
 )
 
 #* ORB SLAM3 as a shared library
