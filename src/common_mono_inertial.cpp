@@ -54,14 +54,14 @@ MonocularInertialMode::MonocularInertialMode() :Node("mono_inertial_node")
 
     // subscribe to the image messages
     imgMsgSub_= this->create_subscription<sensor_msgs::msg::Image>(imgTopic, rclcpp::SensorDataQoS(), std::bind(&MonocularInertialMode::Img_callback, this, _1));
-    // subscribe to the imu messages
+    // subscribe to the imu messages (if eneabled)
     if (isInertial)
     {
         imuMsgSub_= this->create_subscription<sensor_msgs::msg::Imu>(imuTopic, rclcpp::SensorDataQoS(), std::bind(&MonocularInertialMode::Imu_callback, this, _1));
     }
 
     //* Initialize the VSLAM framework
-    initializeVSLAM();
+    InitializeVSLAM();
 }
 
 //* Destructor
@@ -75,7 +75,7 @@ MonocularInertialMode::~MonocularInertialMode()
 }
 
 //* Method to bind an initialized VSLAM framework to this node
-void MonocularInertialMode::initializeVSLAM(){
+void MonocularInertialMode::InitializeVSLAM(){
     
     // Watchdog, if the paths to vocabular and settings files are still not set
     if (vocFilePath == "file_not_set" || settingsFilePath == "file_not_set")
@@ -127,12 +127,12 @@ void MonocularInertialMode::Img_callback(const sensor_msgs::msg::Image::SharedPt
     {
         std::lock_guard<std::mutex> lock(imu_mutex_);
         // Get all IMU measurements between last image and current image
-        for(auto it = imu_buffer_.begin(); it != imu_buffer_.end(); )
+        for(auto it = imuBuffer_.begin(); it != imuBuffer_.end(); )
         {
             if(it->t <= t)
             {
                 vImuMeas.push_back(*it);
-                it = imu_buffer_.erase(it);
+                it = imuBuffer_.erase(it);
             }
             else
             {
@@ -143,14 +143,20 @@ void MonocularInertialMode::Img_callback(const sensor_msgs::msg::Image::SharedPt
         // Track with IMU measurements
         Sophus::SE3f Tcw = pAgent->TrackMonocular(cv_ptr->image, t, vImuMeas);
         // Check if tracking was successful and publish pose
-        checkSuccessfulTracking(Tcw);
+        if(CheckSuccessfulTracking(Tcw))
+        {
+            PublishOrbSlamOutput(Twc, img_msg->header);
+        }
     }
     else
     {
         // Track without IMU measurements
         Sophus::SE3f Tcw = pAgent->TrackMonocular(cv_ptr->image, t);
         // Check if tracking was successful and publish pose
-        checkSuccessfulTracking(Tcw);
+        if(CheckSuccessfulTracking(Tcw))
+        {
+            PublishOrbSlamOutput(Twc, img_msg->header);
+        }
     }
 }
 
@@ -171,10 +177,10 @@ void MonocularInertialMode::Imu_callback(const sensor_msgs::msg::Imu::SharedPtr 
     
     // Add to buffer (thread-safe with mutex)
     std::lock_guard<std::mutex> lock(imu_mutex_);
-    imu_buffer_.push_back(imu_measurement);
+    imuBuffer_.push_back(imu_measurement);
 }
 
-void MonocularInertialMode::checkSuccessfulTracking(Sophus::SE3f Tcw)
+bool MonocularInertialMode::CheckSuccessfulTracking(Sophus::SE3f Tcw)
 {
     // Check if tracking was successful
     if (!Tcw.translation().isZero(1e-6))
@@ -191,4 +197,199 @@ void MonocularInertialMode::checkSuccessfulTracking(Sophus::SE3f Tcw)
     {
         RCLCPP_WARN(this->get_logger(), "Tracking lost!");
     }
+}
+
+void MonocularInertialMode::PublishOrbSlamOutput(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
+{
+    // Convert from camera-to-world to world-to-camera
+    Sophus::SE3f Twc = Tcw.inverse();
+    
+    // Publish pose
+    PublishPose(Twc, img_msg->header);
+    
+    // Publish odometry
+    PublishOdometry(Twc, img_msg->header);
+    
+    // Publish path
+    PublishPath(Twc, img_msg->header);
+    
+    // Publish TF
+    if (publish_tf_)
+    {
+        PublishTF(Twc, img_msg->header);
+    }
+    
+    // Publish map points
+    if (publish_pointcloud_)
+    {
+        PublishMapPoints(img_msg->header);
+    }
+    
+    // Publish tracking image
+    PublishTrackingImage(cv_ptr->image, img_msg->header);
+}
+
+void MonocularInertialMode::PublishPose(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
+{
+    geometry_msgs::msg::PoseStamped pose_msg;
+    pose_msg.header.stamp = header.stamp;
+    pose_msg.header.frame_id = worldFrameId_;
+    
+    Eigen::Vector3f t = Twc.translation();
+    Eigen::Quaternionf q = Twc.unit_quaternion();
+    
+    pose_msg.pose.position.x = t.x();
+    pose_msg.pose.position.y = t.y();
+    pose_msg.pose.position.z = t.z();
+    
+    pose_msg.pose.orientation.x = q.x();
+    pose_msg.pose.orientation.y = q.y();
+    pose_msg.pose.orientation.z = q.z();
+    pose_msg.pose.orientation.w = q.w();
+    
+    pose_pub_->publish(pose_msg);
+}
+
+void MonocularInertialMode::PublishOdometry(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
+{
+    nav_msgs::msg::Odometry odom_msg;
+    odom_msg.header.stamp = header.stamp;
+    odom_msg.header.frame_id = worldFrameId_;
+    odom_msg.child_frame_id = cameraFrameId_;
+    
+    Eigen::Vector3f t = Twc.translation();
+    Eigen::Quaternionf q = Twc.unit_quaternion();
+    
+    odom_msg.pose.pose.position.x = t.x();
+    odom_msg.pose.pose.position.y = t.y();
+    odom_msg.pose.pose.position.z = t.z();
+    
+    odom_msg.pose.pose.orientation.x = q.x();
+    odom_msg.pose.pose.orientation.y = q.y();
+    odom_msg.pose.pose.orientation.z = q.z();
+    odom_msg.pose.pose.orientation.w = q.w();
+    
+    // You can add velocity if available from SLAM
+    // odom_msg.twist.twist.linear.x = vx;
+    // odom_msg.twist.twist.angular.z = wz;
+    
+    odom_pub_->publish(odom_msg);
+}
+
+void MonocularInertialMode::PublishPath(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
+{
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header.stamp = header.stamp;
+    pose.header.frame_id = worldFrameId_;
+    
+    Eigen::Vector3f t = Twc.translation();
+    Eigen::Quaternionf q = Twc.unit_quaternion();
+    
+    pose.pose.position.x = t.x();
+    pose.pose.position.y = t.y();
+    pose.pose.position.z = t.z();
+    
+    pose.pose.orientation.x = q.x();
+    pose.pose.orientation.y = q.y();
+    pose.pose.orientation.z = q.z();
+    pose.pose.orientation.w = q.w();
+    
+    path_.poses.push_back(pose);
+    path_.header = pose.header;
+    
+    path_pub_->publish(path_);
+}
+
+void MonocularInertialMode::PublishTF(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
+{
+    geometry_msgs::msg::TransformStamped transform;
+    transform.header.stamp = header.stamp;
+    transform.header.frame_id = worldFrameId_;
+    transform.child_frame_id = cameraFrameId_;
+    
+    Eigen::Vector3f t = Twc.translation();
+    Eigen::Quaternionf q = Twc.unit_quaternion();
+    
+    transform.transform.translation.x = t.x();
+    transform.transform.translation.y = t.y();
+    transform.transform.translation.z = t.z();
+    
+    transform.transform.rotation.x = q.x();
+    transform.transform.rotation.y = q.y();
+    transform.transform.rotation.z = q.z();
+    transform.transform.rotation.w = q.w();
+    
+    tf_broadcaster_->sendTransform(transform);
+}
+
+void MonocularInertialMode::PublishMapPoints(const std_msgs::msg::Header& header)
+{
+    // Get map points from ORB-SLAM3
+    std::vector<ORB_SLAM3::MapPoint*> vpMPs = mpSLAM->GetTrackedMapPoints();
+    std::vector<ORB_SLAM3::MapPoint*> vpRefMPs = mpSLAM->GetReferenceMapPoints();
+    
+    std::set<ORB_SLAM3::MapPoint*> spRefMPs(vpRefMPs.begin(), vpRefMPs.end());
+    
+    sensor_msgs::msg::PointCloud2 cloud_msg;
+    cloud_msg.header.stamp = header.stamp;
+    cloud_msg.header.frame_id = worldFrameId_;
+    
+    cloud_msg.height = 1;
+    cloud_msg.width = vpMPs.size();
+    cloud_msg.is_dense = false;
+    
+    cloud_msg.fields.resize(3);
+    cloud_msg.fields[0].name = "x";
+    cloud_msg.fields[0].offset = 0;
+    cloud_msg.fields[0].datatype = sensor_msgs::msg::PointField::FLOAT32;
+    cloud_msg.fields[0].count = 1;
+    
+    cloud_msg.fields[1].name = "y";
+    cloud_msg.fields[1].offset = 4;
+    cloud_msg.fields[1].datatype = sensor_msgs::msg::PointField::FLOAT32;
+    cloud_msg.fields[1].count = 1;
+    
+    cloud_msg.fields[2].name = "z";
+    cloud_msg.fields[2].offset = 8;
+    cloud_msg.fields[2].datatype = sensor_msgs::msg::PointField::FLOAT32;
+    cloud_msg.fields[2].count = 1;
+    
+    cloud_msg.point_step = 12;
+    cloud_msg.row_step = cloud_msg.point_step * cloud_msg.width;
+    cloud_msg.data.resize(cloud_msg.row_step);
+    
+    int idx = 0;
+    for(size_t i = 0; i < vpMPs.size(); i++)
+    {
+        if(vpMPs[i] && !vpMPs[i]->isBad())
+        {
+            Eigen::Vector3f pos = vpMPs[i]->GetWorldPos();
+            
+            memcpy(&cloud_msg.data[idx * 12 + 0], &pos(0), sizeof(float));
+            memcpy(&cloud_msg.data[idx * 12 + 4], &pos(1), sizeof(float));
+            memcpy(&cloud_msg.data[idx * 12 + 8], &pos(2), sizeof(float));
+            idx++;
+        }
+    }
+    
+    cloud_msg.width = idx;
+    cloud_msg.row_step = cloud_msg.point_step * cloud_msg.width;
+    cloud_msg.data.resize(cloud_msg.row_step);
+    
+    pointcloud_pub_->publish(cloud_msg);
+}
+
+void MonocularInertialMode::PublishTrackingImage(const cv::Mat& image, const std_msgs::msg::Header& header)
+{
+    // Get tracked features from ORB-SLAM3 and draw them
+    cv::Mat im_with_info = image.clone();
+    
+    // Draw tracked features, keypoints, etc.
+    // This depends on your ORB-SLAM3 version and available methods
+    // Example: draw current tracked points
+    
+    sensor_msgs::msg::Image::SharedPtr tracking_msg = 
+        cv_bridge::CvImage(header, "bgr8", im_with_info).toImageMsg();
+    
+    tracking_image_pub_->publish(*tracking_msg);
 }

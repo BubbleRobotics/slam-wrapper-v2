@@ -27,6 +27,12 @@
 #include <std_msgs/msg/bool.hpp>
 #include "sensor_msgs/msg/image.hpp"
 #include "sensor_msgs/msg/imu.hpp"
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <nav_msgs/msg/path.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <tf2_ros/transform_broadcaster.h>
 using std::placeholders::_1; //* TODO why this is suggested in official tutorial
 
 // Include Eigen
@@ -69,7 +75,13 @@ class MonocularInertialMode : public rclcpp::Node
     ~MonocularInertialMode(); // Destructor
         
     private:
-        
+ 
+        //   __     __         _       _     _           
+        //   \ \   / /_ _ _ __(_) __ _| |__ | | ___  ___ 
+        //    \ \ / / _` | '__| |/ _` | '_ \| |/ _ \/ __|
+        //     \ V / (_| | |  | | (_| | |_) | |  __/\__ \
+        //      \_/ \__,_|_|  |_|\__,_|_.__/|_|\___||___/
+
         // Class internal variables
         std::string OPENCV_WINDOW = ""; // Set during initialization
         std::string nodeName = ""; // Name of this node
@@ -83,9 +95,16 @@ class MonocularInertialMode : public rclcpp::Node
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr imgMsgSub_; // Subscriber to receive image messages
         rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imuMsgSub_; // Subscriber to receive IMU messages
 
+        rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;
+        rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
+        rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
+        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_pub_;
+        rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr tracking_image_pub_;
+
         //* ORB_SLAM3 related variables
         ORB_SLAM3::System* pAgent; // pointer to a ORB SLAM3 object
         ORB_SLAM3::System::eSensor sensorType;
+
         bool enableDebugWindow = false; // Enable debug window showing SLAM in pangolin/opencv
         bool enablePangolinWindow = false; // Shows Pangolin window output
         bool enableOpenCVWindow = false; // Shows OpenCV window output
@@ -94,16 +113,36 @@ class MonocularInertialMode : public rclcpp::Node
         bool isInertial = true;
         
         // IMU buffer 
-        std::vector<ORB_SLAM3::IMU::Point> imu_buffer_;
+        std::vector<ORB_SLAM3::IMU::Point> imuBuffer_;
         std::mutex imu_mutex_;
+        nav_msgs::msg::Path path_;
+    
+        std::string worldFrameId_;
+        std::string cameraFrameId_;
+        bool publishTf_ = true;
+        bool publishPointcloud_ = true;
 
+        //    _____                 _   _                  
+        //   |  ___|   _ _ __   ___| |_(_) ___  _ __  ___  
+        //   | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __| 
+        //   |  _|| |_| | | | | (__| |_| | (_) | | | \__ \ 
+        //   |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/ 
         //* ROS callbacks
         void Img_callback(const sensor_msgs::msg::Image::SharedPtr img_msg); // Callback to process RGB image and semantic matrix sent by Python node
         void Imu_callback(const sensor_msgs::msg::Imu::SharedPtr imu_msg); // Callback to process IMU data sent by Python node
 
         //* Helper functions
-        void initializeVSLAM(); //* Method to bind an initialized VSLAM framework to this node
-        void checkSuccessfulTracking(Sophus::SE3f Tcw); //* Method to check if tracking was successful and publish pose 
+        void InitializeVSLAM(); //* Method to bind an initialized VSLAM framework to this node
+        bool CheckSuccessfulTracking(Sophus::SE3f Tcw); //* Method to check if tracking was successful and publish pose 
+
+        // Publishers for Orb Slam Output
+        void PublishOrbSlamOutput(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
+        void PublishPose(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
+        void PublishOdometry(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
+        void PublishPath(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
+        void PublishTF(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
+        void PublishMapPoints(const std_msgs::msg::Header& header);
+        void PublishTrackingImage(const cv::Mat& image, const std_msgs::msg::Header& header);
 
 };
 

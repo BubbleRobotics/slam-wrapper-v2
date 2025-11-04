@@ -22,7 +22,7 @@ def generate_launch_description():
             parameters=[
                 {'settings_file': '/home/ubuntu/ws_blue/src/slam-wrapper-v2/orb_slam3/config/Monocular-Inertial/RealSense_D455.yaml'},
                 {'voc_file': '/home/ubuntu/ws_blue/src/slam-wrapper-v2/orb_slam3/Vocabulary/ORBvoc.txt.bin'},
-                {'img_topic': '/cam_realsense/camera/color/image_raw'},
+                {'img_topic': '/cam_realsense/camera/infra2/image_rect_raw'},
                 {'imu_topic': '/cam_realsense/camera/imu'},
                 {'enable_debug_window': True},
                 {'is_inertial': False},
