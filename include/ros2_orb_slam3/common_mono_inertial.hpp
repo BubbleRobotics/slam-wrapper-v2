@@ -76,7 +76,6 @@ class MonocularInertialMode : public rclcpp::Node
         std::string vocFilePath = ""; // Path to ORB vocabulary provided by DBoW2 package
         std::string settingsFilePath = ""; // Path to settings file provided by ORB_SLAM3 package
         
-        std::string pubconfigackName = ""; // Publisher topic name
         std::string imgTopic = ""; // Topic to subscribe to receive RGB images from a python node
         std::string imuTopic = ""; // Topic to subscribe to receive IMU data from a python node
 
@@ -91,16 +90,20 @@ class MonocularInertialMode : public rclcpp::Node
         bool enablePangolinWindow = false; // Shows Pangolin window output
         bool enableOpenCVWindow = false; // Shows OpenCV window output
 
-        //* ROS callbacks
-        void Img_callback(const sensor_msgs::msg::Image::SharedPtr img_msg); // Callback to process RGB image and semantic matrix sent by Python node
-        void Imu_callback(const sensor_msgs::msg::Imu::SharedPtr imu_msg); // Callback to process IMU data sent by Python node
+        // switch for inertial and non-inertial mode
+        bool isInertial = true;
         
         // IMU buffer 
         std::vector<ORB_SLAM3::IMU::Point> imu_buffer_;
         std::mutex imu_mutex_;
 
+        //* ROS callbacks
+        void Img_callback(const sensor_msgs::msg::Image::SharedPtr img_msg); // Callback to process RGB image and semantic matrix sent by Python node
+        void Imu_callback(const sensor_msgs::msg::Imu::SharedPtr imu_msg); // Callback to process IMU data sent by Python node
+
         //* Helper functions
         void initializeVSLAM(); //* Method to bind an initialized VSLAM framework to this node
+        void checkSuccessfulTracking(Sophus::SE3f Tcw); //* Method to check if tracking was successful and publish pose 
 
 };
 

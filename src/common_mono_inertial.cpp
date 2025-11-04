@@ -21,6 +21,7 @@ MonocularInertialMode::MonocularInertialMode() :Node("mono_inertial_node")
     this->declare_parameter("img_topic", "/camera/left/image_raw"); // topic to receive image messages
     this->declare_parameter("imu_topic", "/imu/data"); // topic to receive IMU messages
     this->declare_parameter("enable_debug_window", true); // Enable debug window showing SLAM in pangolin/opencv
+    this->declare_parameter("is_inertial", true); // switch for inertial and non-inertial mode
 
     //* Populate parameter values
     rclcpp::Parameter nodeNameParam = this->get_parameter("node_name");
@@ -40,6 +41,9 @@ MonocularInertialMode::MonocularInertialMode() :Node("mono_inertial_node")
 
     rclcpp::Parameter enableDebugWindowParam = this->get_parameter("enable_debug_window");
     enableDebugWindow = enableDebugWindowParam.as_bool();
+
+    rclcpp::Parameter isInertialParam = this->get_parameter("is_inertial");
+    isInertial = isInertialParam.as_bool();
     
     //* DEBUG print
     RCLCPP_INFO(this->get_logger(), "nodeName %s", nodeName.c_str());
@@ -51,7 +55,10 @@ MonocularInertialMode::MonocularInertialMode() :Node("mono_inertial_node")
     // subscribe to the image messages
     imgMsgSub_= this->create_subscription<sensor_msgs::msg::Image>(imgTopic, rclcpp::SensorDataQoS(), std::bind(&MonocularInertialMode::Img_callback, this, _1));
     // subscribe to the imu messages
-    imuMsgSub_= this->create_subscription<sensor_msgs::msg::Imu>(imuTopic, rclcpp::SensorDataQoS(), std::bind(&MonocularInertialMode::Imu_callback, this, _1));
+    if (isInertial)
+    {
+        imuMsgSub_= this->create_subscription<sensor_msgs::msg::Imu>(imuTopic, rclcpp::SensorDataQoS(), std::bind(&MonocularInertialMode::Imu_callback, this, _1));
+    }
 
     //* Initialize the VSLAM framework
     initializeVSLAM();
@@ -79,7 +86,14 @@ void MonocularInertialMode::initializeVSLAM(){
     
     // NOTE if you plan on passing other configuration parameters to ORB SLAM3 Systems class, do it here
     // NOTE you may also use a .yaml file here to set these values
-    sensorType = ORB_SLAM3::System::IMU_MONOCULAR; 
+    if (isInertial)
+    {
+        sensorType = ORB_SLAM3::System::IMU_MONOCULAR; 
+    }
+    else
+    {
+        sensorType = ORB_SLAM3::System::MONOCULAR; 
+    }
 
     if (enableDebugWindow)
     {
@@ -109,9 +123,9 @@ void MonocularInertialMode::Img_callback(const sensor_msgs::msg::Image::SharedPt
     
     // Get IMU measurements for this frame
     std::vector<ORB_SLAM3::IMU::Point> vImuMeas;
+    if (isInertial)
     {
         std::lock_guard<std::mutex> lock(imu_mutex_);
-        
         // Get all IMU measurements between last image and current image
         for(auto it = imu_buffer_.begin(); it != imu_buffer_.end(); )
         {
@@ -125,27 +139,18 @@ void MonocularInertialMode::Img_callback(const sensor_msgs::msg::Image::SharedPt
                 ++it;
             }
         }
-    }
-    
-    RCLCPP_INFO(this->get_logger(), "Image timestamp: %.6f, IMU measurements: %zu", t, vImuMeas.size());
-
-    // Track with IMU measurements
-    Sophus::SE3f Tcw = pAgent->TrackMonocular(cv_ptr->image, t, vImuMeas);
-    
-    // Check if tracking was successful
-    if (!Tcw.translation().isZero(1e-6))
-    {
-        // Get rotation and translation
-        Eigen::Matrix3f R = Tcw.rotationMatrix();
-        Eigen::Vector3f trans = Tcw.translation();
-        
-        // Publish your pose here
-        RCLCPP_INFO(this->get_logger(), "Pose: [%.3f, %.3f, %.3f]", 
-                   trans(0), trans(1), trans(2));
+        RCLCPP_INFO(this->get_logger(), "Image timestamp: %.6f, IMU measurements: %zu", t, vImuMeas.size());
+        // Track with IMU measurements
+        Sophus::SE3f Tcw = pAgent->TrackMonocular(cv_ptr->image, t, vImuMeas);
+        // Check if tracking was successful and publish pose
+        checkSuccessfulTracking(Tcw);
     }
     else
     {
-        RCLCPP_WARN(this->get_logger(), "Tracking lost!");
+        // Track without IMU measurements
+        Sophus::SE3f Tcw = pAgent->TrackMonocular(cv_ptr->image, t);
+        // Check if tracking was successful and publish pose
+        checkSuccessfulTracking(Tcw);
     }
 }
 
@@ -169,4 +174,21 @@ void MonocularInertialMode::Imu_callback(const sensor_msgs::msg::Imu::SharedPtr 
     imu_buffer_.push_back(imu_measurement);
 }
 
-
+void MonocularInertialMode::checkSuccessfulTracking(Sophus::SE3f Tcw)
+{
+    // Check if tracking was successful
+    if (!Tcw.translation().isZero(1e-6))
+    {
+        // Get rotation and translation
+        Eigen::Matrix3f R = Tcw.rotationMatrix();
+        Eigen::Vector3f trans = Tcw.translation();
+        
+        // Publish your pose here
+        RCLCPP_INFO(this->get_logger(), "Pose: [%.3f, %.3f, %.3f]", 
+                   trans(0), trans(1), trans(2));
+    }
+    else
+    {
+        RCLCPP_WARN(this->get_logger(), "Tracking lost!");
+    }
+}
