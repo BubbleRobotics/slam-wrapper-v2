@@ -28,6 +28,7 @@ find_package(image_transport REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 
 
@@ -64,6 +65,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   geometry_msgs
   nav_msgs
   tf2_ros
+  tf2_geometry_msgs
   cv_bridge
 )
 
