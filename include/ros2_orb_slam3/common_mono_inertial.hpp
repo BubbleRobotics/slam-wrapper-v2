@@ -33,6 +33,9 @@
 #include <nav_msgs/msg/path.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 using std::placeholders::_1; //* TODO why this is suggested in official tutorial
 
 // Include Eigen
@@ -95,11 +98,14 @@ class MonocularInertialMode : public rclcpp::Node
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr imgMsgSub_; // Subscriber to receive image messages
         rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imuMsgSub_; // Subscriber to receive IMU messages
 
-        rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;
-        rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
-        rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_;
-        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloud_pub_;
-        rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr tracking_image_pub_;
+        rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr posePub_;
+        rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odomPub_;
+        rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pathPub_;
+        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloudPub_;
+        rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr trackingImagePub_;
+
+        std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
+
 
         //* ORB_SLAM3 related variables
         ORB_SLAM3::System* pAgent; // pointer to a ORB SLAM3 object
@@ -117,10 +123,16 @@ class MonocularInertialMode : public rclcpp::Node
         std::mutex imu_mutex_;
         nav_msgs::msg::Path path_;
     
-        std::string worldFrameId_;
-        std::string cameraFrameId_;
+        std::string worldFrameId_ = "map";
+        std::string cameraFrameId_ = "";
+        std::string imuFrameId_ = "";
         bool publishTf_ = true;
         bool publishPointcloud_ = true;
+
+        // frame transform vars
+        tf2_ros::Buffer tf_buffer_;
+        tf2_ros::TransformListener tf_listener_;
+        geometry_msgs::msg::TransformStamped transformImuCam;
 
         //    _____                 _   _                  
         //   |  ___|   _ _ __   ___| |_(_) ___  _ __  ___  
@@ -133,16 +145,19 @@ class MonocularInertialMode : public rclcpp::Node
 
         //* Helper functions
         void InitializeVSLAM(); //* Method to bind an initialized VSLAM framework to this node
+        bool InitImuCamTransform(); //* Method to initialize the transform between IMU and camera frames
         bool CheckSuccessfulTracking(Sophus::SE3f Tcw); //* Method to check if tracking was successful and publish pose 
 
         // Publishers for Orb Slam Output
-        void PublishOrbSlamOutput(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
+        void PublishOrbSlamOutput(const Sophus::SE3f& Twc, 
+                                    const sensor_msgs::msg::Image::SharedPtr img_msg, 
+                                    const cv_bridge::CvImageConstPtr& cv_ptr);
         void PublishPose(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
-        void PublishOdometry(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
+        void PublishOdometry(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::SharedPtr img_msg);
         void PublishPath(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
-        void PublishTF(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
+        void PublishTF(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::SharedPtr img_msg);
         void PublishMapPoints(const std_msgs::msg::Header& header);
-        void PublishTrackingImage(const cv::Mat& image, const std_msgs::msg::Header& header);
+        void PublishTrackingImage(const cv::Mat& image, const sensor_msgs::msg::Image::SharedPtr img_msg);
 
 };
 
