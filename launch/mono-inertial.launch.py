@@ -25,7 +25,7 @@ def generate_launch_description():
                 {'img_topic': '/cam_realsense/camera/infra2/image_rect_raw'},
                 {'imu_topic': '/cam_realsense/camera/imu'},
                 {'enable_debug_window': True},
-                {'is_inertial': False},
+                {'is_inertial': True},
             ]
     )
 
