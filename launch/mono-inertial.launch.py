@@ -9,8 +9,13 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
+
+    # get package directory
+    package_dir = get_package_share_directory(
+        "ros2_orb_slam3")
 
     # Create nodes
     mono_inertial_node: Node = Node(
@@ -20,8 +25,8 @@ def generate_launch_description():
             namespace='ORB_SLAM3',
             output='screen',
             parameters=[
-                {'settings_file': '/home/ubuntu/ws_blue/src/slam-wrapper-v2/orb_slam3/config/Monocular-Inertial/RealSense_D455.yaml'},
-                {'voc_file': '/home/ubuntu/ws_blue/src/slam-wrapper-v2/orb_slam3/Vocabulary/ORBvoc.txt.bin'},
+                {'settings_file': package_dir + '/orb_slam3/config/Monocular-Inertial/RealSense_D455.yaml'},
+                {'voc_file': package_dir + '/orb_slam3/Vocabulary/ORBvoc.txt.bin'},
                 {'img_topic': '/cam_realsense/camera/infra2/image_rect_raw'},
                 {'imu_topic': '/cam_realsense/camera/imu'},
                 {'enable_debug_window': True},
