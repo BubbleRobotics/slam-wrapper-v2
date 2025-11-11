@@ -20,7 +20,7 @@ Camera1.p2: 0.002628
 Camera1.k3: 1.163314
 
 Camera.width: 640
-Camera.height: 480
+Camera.height: 360
 
 # Camera frames per second
 Camera.fps: 30
