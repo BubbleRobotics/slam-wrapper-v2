@@ -123,7 +123,8 @@ class MonocularInertialMode : public rclcpp::Node
         std::mutex imu_mutex_;
         nav_msgs::msg::Path path_;
     
-        std::string worldFrameId_ = "map";
+        std::string worldFrameId_ = "mapOrb";
+        std::string cameraFrameOrbId = "cameraOrb";
         std::string cameraFrameId_ = "";
         std::string imuFrameId_ = "";
         bool publishTf_ = true;
