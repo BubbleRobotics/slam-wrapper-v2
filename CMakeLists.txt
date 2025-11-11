@@ -194,6 +194,14 @@ install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}/
 )
 
+# install orb config and vocabulary files
+install(DIRECTORY orb_slam3/config
+  DESTINATION share/${PROJECT_NAME}/orb_slam3/
+)
+install(DIRECTORY orb_slam3/Vocabulary
+  DESTINATION share/${PROJECT_NAME}/orb_slam3/
+)
+
 # Install our node and library
 install(TARGETS mono_node_cpp mono_inertial_node_cpp orb_slam3_lib
   ARCHIVE DESTINATION lib
