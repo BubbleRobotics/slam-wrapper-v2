@@ -232,5 +232,8 @@ install(PROGRAMS
   DESTINATION lib/${PROJECT_NAME}
 )
 
+install(PROGRAMS
+  scripts/mono_driver_node_tank.py
+  DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
