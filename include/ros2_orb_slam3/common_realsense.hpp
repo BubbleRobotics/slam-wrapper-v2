@@ -28,6 +28,7 @@
 #include <std_msgs/msg/string.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include "sensor_msgs/msg/image.hpp"
+#include "sensor_msgs/msg/imu.hpp"
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
@@ -79,6 +80,7 @@ class RealsenseMode : public rclcpp::Node
         std::string settingsFilePath = ""; // Path to settings file provided by ORB_SLAM3 package
         std::string img1Topic = ""; // Topic to subscribe to receive infra1 rec images
         std::string img2Topic = ""; // Topic to subscribe to receive infra2 rec images
+        std::string imuTopic = ""; // Topic to subscribe to receive IMU data 
 
         //* ORB_SLAM3 related variables
         ORB_SLAM3::System* pAgent; // pointer to a ORB SLAM3 object
@@ -88,6 +90,7 @@ class RealsenseMode : public rclcpp::Node
         bool enableOpenCVWindow = false; // Shows OpenCV window output
 
         //* Definitions of publisher and subscribers
+        rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imuMsgSub_; // Subscriber to receive IMU messages
         std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> left_sub_;
         std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> right_sub_;
         typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::msg::Image, sensor_msgs::msg::Image> MySyncPolicy;
@@ -95,10 +98,15 @@ class RealsenseMode : public rclcpp::Node
 
         //* Helper functions
         // ORB_SLAM3::eigenMatXf convertToEigenMat(const std_msgs::msg::Float32MultiArray& msg); // Helper method, converts semantic matrix eigenMatXf, a Eigen 4x4 float matrix
-        void initializeVSLAM(); //* Method to bind an initialized VSLAM framework to this node
+        void initializeVISLAM(); //* Method to bind an initialized VISLAM framework to this node
 
         void stereo_callback(const sensor_msgs::msg::Image::ConstSharedPtr &left_img,
                              const sensor_msgs::msg::Image::ConstSharedPtr &right_img);
+        void imu_callback(const sensor_msgs::msg::Imu::SharedPtr imu_msg);
+
+        // IMU buffer 
+        std::vector<ORB_SLAM3::IMU::Point> imu_buffer_;
+        std::mutex imu_mutex_;
 };
 
 #endif

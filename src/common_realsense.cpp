@@ -1,14 +1,11 @@
-/*
+/**
+ * @ Author: Diego Hernandez Est
+ * @ Create Time: 2025-11-13 10:42:00
+ * @ Modified by: Diego Hernandez Estrada
+ * @ Modified time: 2025-11-13 10:42:00
+ * @ Description: ROS2 node for Stereo-Inertial VSLAM using ORB-SLAM3
+ */
 
-A bare-bones example node demonstrating the use of the Monocular mode in ORB-SLAM3
-
-Author: Azmyin Md. Kamal
-Date: 01/01/24
-
-REQUIREMENTS
-* Make sure to set path to your workspace in common.hpp file
-
-*/
 
 //* Includes
 #include "ros2_orb_slam3/common_realsense.hpp"
@@ -25,6 +22,7 @@ RealsenseMode::RealsenseMode() :Node("realsense_node")
     this->declare_parameter("settings_file", "file_path_not_set"); // path to settings file  
     this->declare_parameter("img1_topic", "/cam_realsense/camera/infra1/image_rect_raw"); // topic to receive image messages
     this->declare_parameter("img2_topic", "/cam_realsense/camera/infra2/image_rect_raw"); // topic to receive image messages
+    this->declare_parameter("imu_topic", "/cam_realsense/camera/imu");
     this->declare_parameter("enable_debug_window", true); // Enable debug window showing SLAM in pangolin/opencv
 
     //* Populate parameter values
@@ -42,6 +40,9 @@ RealsenseMode::RealsenseMode() :Node("realsense_node")
 
     rclcpp::Parameter img2TopicParam = this->get_parameter("img2_topic");
     img2Topic = img2TopicParam.as_string();
+
+    rclcpp::Parameter imuTopicParam = this->get_parameter("imu_topic");
+    imuTopic = imuTopicParam.as_string();
 
     rclcpp::Parameter enableDebugWindowParam = this->get_parameter("enable_debug_window");
     enableDebugWindow = enableDebugWindowParam.as_bool();
@@ -61,11 +62,15 @@ RealsenseMode::RealsenseMode() :Node("realsense_node")
 
     RCLCPP_INFO(this->get_logger(), "nodeName %s", nodeName.c_str());
     RCLCPP_INFO(this->get_logger(), "voc_file %s", vocFilePath.c_str());
-    RCLCPP_INFO(this->get_logger(), "settings_file_path %s", settingsFilePath.c_str());\
+    RCLCPP_INFO(this->get_logger(), "settings_file_path %s", settingsFilePath.c_str());
     RCLCPP_INFO(this->get_logger(), "img1_topic %s", img1Topic.c_str());
     RCLCPP_INFO(this->get_logger(), "img2_topic %s", img2Topic.c_str());
+    RCLCPP_INFO(this->get_logger(), "imu_topic %s", imuTopic.c_str());
 
-    initializeVSLAM();
+    initializeVISLAM();
+
+    // subscribe to the imu messages
+    imuMsgSub_= this->create_subscription<sensor_msgs::msg::Imu>(imuTopic, rclcpp::SensorDataQoS(), std::bind(&RealsenseMode::imu_callback, this, std::placeholders::_1));
 
     //set up stereo subscribers with message_filters
     left_sub_ = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::Image>>(this, img1Topic);
@@ -85,8 +90,8 @@ RealsenseMode::~RealsenseMode()
     pAgent->Shutdown();
 }
 
-//* Method to bind an initialized VSLAM framework to this node
-void RealsenseMode::initializeVSLAM(){
+//* Method to bind an initialized VI-SLAM framework to this node
+void RealsenseMode::initializeVISLAM(){
     
     // Watchdog, if the paths to vocabular and settings files are still not set (DOUBLECHECK)
     if (vocFilePath == "file_not_set" || settingsFilePath == "file_not_set")
@@ -95,7 +100,7 @@ void RealsenseMode::initializeVSLAM(){
         rclcpp::shutdown();
     } 
     
-    sensorType = ORB_SLAM3::System::STEREO;
+    sensorType = ORB_SLAM3::System::IMU_STEREO;
 
     if (enableDebugWindow)
     {
@@ -124,10 +129,32 @@ void RealsenseMode::stereo_callback(const sensor_msgs::msg::Image::ConstSharedPt
     }
     
     double t = left_img->header.stamp.sec + left_img->header.stamp.nanosec * 1e-9;
+
+    // Get IMU measurement for this frame
+    std::vector<ORB_SLAM3::IMU::Point> vImuMeas;
+    {
+        std::lock_guard<std::mutex> lock(imu_mutex_);
+        
+        // Get all IMU measurements between last image and current image
+        for(auto it = imu_buffer_.begin(); it != imu_buffer_.end(); )
+        {
+            if(it->t <= t)
+            {
+                // Delete all used values
+                vImuMeas.push_back(*it);
+                it = imu_buffer_.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
     
+    RCLCPP_INFO(this->get_logger(), "Image timestamp: %.6f, IMU measurements: %zu", t, vImuMeas.size());
     //* Perform all ORB-SLAM3 operations in Stereo mode
     //! Pose with respect to the camera coordinate frame not the world coordinate frame
-    Sophus::SE3f Tcw = pAgent->TrackStereo(left_cv_ptr->image, right_cv_ptr->image, t);
+    Sophus::SE3f Tcw = pAgent->TrackStereo(left_cv_ptr->image, right_cv_ptr->image, t, vImuMeas);
 
     // Check if tracking was successful
     if (!Tcw.translation().isZero(1e-6))
@@ -146,4 +173,23 @@ void RealsenseMode::stereo_callback(const sensor_msgs::msg::Image::ConstSharedPt
     }
 }
 
-
+void RealsenseMode::imu_callback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
+{
+    // Buffer IMU measurements
+    //RCLCPP_INFO(this->get_logger(), "Incoming IMU message");
+    double t = imu_msg->header.stamp.sec + imu_msg->header.stamp.nanosec * 1e-9;
+    
+    ORB_SLAM3::IMU::Point imu_measurement(
+        imu_msg->linear_acceleration.x,
+        imu_msg->linear_acceleration.y,
+        imu_msg->linear_acceleration.z,
+        imu_msg->angular_velocity.x,
+        imu_msg->angular_velocity.y,
+        imu_msg->angular_velocity.z,
+        t
+    ); // This is defined in orb_slam3/include/ImuTypes.h (l. 46-59)
+    
+    // Add to buffer (thread-safe with mutex)
+    std::lock_guard<std::mutex> lock(imu_mutex_);
+    imu_buffer_.push_back(imu_measurement);
+}

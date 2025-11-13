@@ -20,10 +20,11 @@ def generate_launch_description():
             namespace='ORB_SLAM3',
             output='screen',
             parameters=[
-                {'settings_file': '/home/ubuntu/ws_blue/src/slam-wrapper-v2/orb_slam3/config/Stereo/RealSense_D555.yaml'},
+                {'settings_file': '/home/ubuntu/ws_blue/src/slam-wrapper-v2/orb_slam3/config/Stereo-Inertial/RealSense_D555.yaml'},
                 {'voc_file': '/home/ubuntu/ws_blue/src/slam-wrapper-v2/orb_slam3/Vocabulary/ORBvoc.txt.bin'},
                 {'img1_topic': '/cam_realsense/camera/infra1/image_rect_raw'},
                 {'img2_topic': '/cam_realsense/camera/infra2/image_rect_raw'},
+                {'imu_topic': '/cam_realsense/camera/imu'},
                 {'enable_debug_window': True},
             ]
     )

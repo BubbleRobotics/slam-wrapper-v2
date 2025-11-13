@@ -1,0 +1,124 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-448105e14754b8fe45c4.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.15"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7
+					]
+				}
+			],
+			"name" : "",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "ros2_orb_slam3",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_build_ros2_orb_slam3_egg::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_build_ros2_orb_slam3_egg-2a675e1c3150abf22917.json",
+					"name" : "ament_cmake_python_build_ros2_orb_slam3_egg",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ament_cmake_python_copy_ros2_orb_slam3::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ament_cmake_python_copy_ros2_orb_slam3-1ad1301c0f6c3744ef87.json",
+					"name" : "ament_cmake_python_copy_ros2_orb_slam3",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "mono_inertial_node_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-mono_inertial_node_cpp-a302bafb54f7fa94f219.json",
+					"name" : "mono_inertial_node_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "mono_node_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-mono_node_cpp-95443700b0522abe5130.json",
+					"name" : "mono_node_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "orb_slam3_lib::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-orb_slam3_lib-a96ad6e8b26b9a2ebf7d.json",
+					"name" : "orb_slam3_lib",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "realsense_node_cpp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-realsense_node_cpp-ab8f966ff6c8912d5621.json",
+					"name" : "realsense_node_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "ros2_orb_slam3_uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ros2_orb_slam3_uninstall-dd8c0ba1ae2ab02988bb.json",
+					"name" : "ros2_orb_slam3_uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-e876a631db841188e321.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/ubuntu/ws_blue/src/slam-wrapper-v2/build/ros2_orb_slam3",
+		"source" : "/home/ubuntu/ws_blue/src/slam-wrapper-v2"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 6
+	}
+}
