@@ -25,6 +25,11 @@ find_package(OpenCV 4.6 REQUIRED) # In Ubuntu 24.04 4.6 or greater is required
 find_package(Eigen3 3.3.0 REQUIRED) # Matched with Sophus
 find_package(Pangolin REQUIRED)
 find_package(image_transport REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(cv_bridge REQUIRED)
 
 
 # Header file locations [C++ node]
@@ -57,6 +62,11 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   OpenCV
   Eigen3
   Pangolin
+  geometry_msgs
+  nav_msgs
+  tf2_ros
+  tf2_geometry_msgs
+  cv_bridge
 )
 
 #* ORB SLAM3 as a shared library
@@ -151,17 +161,27 @@ install(FILES ${DBoW2_PATH} DESTINATION lib)
 install(FILES ${g2o_PATH} DESTINATION lib)
 
 
-# Add executable
+# Add executable (monocular VSLAM node)
 add_executable(mono_node_cpp
   src/mono_example.cpp
   src/common.cpp
 )
 
+# Add executable (monocular-inertial VSLAM node)
+add_executable(mono_inertial_node_cpp
+  src/mono_inertial_node.cpp
+  src/common_mono_inertial.cpp
+)
+
 ament_target_dependencies(mono_node_cpp
+  PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS}
+)
+ament_target_dependencies(mono_inertial_node_cpp
   PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
 
 target_link_libraries(mono_node_cpp PUBLIC orb_slam3_lib) # Link a node with the internal shared library
+target_link_libraries(mono_inertial_node_cpp PUBLIC orb_slam3_lib) # Link a node with the internal shared library
 
 
 # Install all the header files in package/package/include
@@ -169,8 +189,21 @@ install (DIRECTORY include/
         DESTINATION include
 )
 
+# install launch file 
+install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}/
+)
+
+# install orb config and vocabulary files
+install(DIRECTORY orb_slam3/config
+  DESTINATION share/${PROJECT_NAME}/orb_slam3/
+)
+install(DIRECTORY orb_slam3/Vocabulary
+  DESTINATION share/${PROJECT_NAME}/orb_slam3/
+)
+
 # Install our node and library
-install(TARGETS mono_node_cpp orb_slam3_lib
+install(TARGETS mono_node_cpp mono_inertial_node_cpp orb_slam3_lib
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}

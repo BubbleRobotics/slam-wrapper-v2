@@ -464,7 +464,21 @@ Sophus::SE3f System::TrackMonocular(const cv::Mat &im, const double &timestamp, 
     return Tcw;
 }
 
+void System::TrackIMU(const double &timestamp, const IMU::Point &imuMeas)
+{
+    // check if we use an IMU method
+    if (!(mSensor == System::IMU_MONOCULAR) || 
+            (mSensor == System::IMU_STEREO) || 
+            (mSensor == System::IMU_RGBD)) 
+    {
+        // Display warning and return
+        cout << "SYSTEM not set to use IMU data" << endl;
+        return;
+    }
 
+    // now actually call ORB SLAM to track IMU 
+    mpTracker->GrabImuData(imuMeas);
+}
 
 void System::ActivateLocalizationMode()
 {
