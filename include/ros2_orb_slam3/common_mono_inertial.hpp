@@ -10,7 +10,6 @@
 #include <vector> // vectors are sequence containers representing arrays that can change in size.
 #include <queue>
 #include <thread> // class to represent individual threads of execution.
-#include <mutex> // A mutex is a lockable object that is designed to signal when critical sections of code need exclusive access, preventing other threads with the same protection from executing concurrently and access the same memory locations.
 #include <cstdlib> // to find home directory
 
 #include <cstring>
@@ -119,8 +118,6 @@ class MonocularInertialMode : public rclcpp::Node
         bool isInertial = true;
         
         // IMU buffer 
-        std::vector<ORB_SLAM3::IMU::Point> imuBuffer_;
-        std::mutex imu_mutex_;
         nav_msgs::msg::Path path_;
     
         std::string worldFrameId_ = "mapOrb";

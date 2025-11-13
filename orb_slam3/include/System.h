@@ -124,6 +124,10 @@ public:
     // Returns the camera pose (empty if tracking fails).
     Sophus::SE3f TrackMonocular(const cv::Mat &im, const double &timestamp, const vector<IMU::Point>& vImuMeas = vector<IMU::Point>(), string filename="");
 
+    // Method to update the tracking with incoming IMU data
+    // Input: Timestamp and single imuMeasurment
+    // Returns nothing
+    void TrackIMU(const double &timestamp, const IMU::Point &imuMeas);
 
     // This stops local mapping thread (map building) and performs only camera tracking.
     void ActivateLocalizationMode();

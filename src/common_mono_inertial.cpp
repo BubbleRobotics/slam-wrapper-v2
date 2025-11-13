@@ -190,34 +190,13 @@ void MonocularInertialMode::Img_callback(const sensor_msgs::msg::Image::SharedPt
     
     double t = img_msg->header.stamp.sec + img_msg->header.stamp.nanosec * 1e-9;
     
-    // Get IMU measurements for this frame
-    std::vector<ORB_SLAM3::IMU::Point> vImuMeas;
-    if (isInertial)
+    // Track 
+    Sophus::SE3f Tcw = pAgent->TrackMonocular(cv_ptr->image, t);
+
+    // Check if tracking was successful and publish pose
+    if(CheckSuccessfulTracking(Tcw))
     {
-        {
-            std::lock_guard<std::mutex> lock(imu_mutex_);
-            std::swap(vImuMeas, imuBuffer_);
-        }
-        
-        RCLCPP_INFO(this->get_logger(), "Number of IMU measurements for this frame: %d", vImuMeas.size());
-        // Track with IMU measurements
-        Sophus::SE3f Tcw = pAgent->TrackMonocular(cv_ptr->image, t, vImuMeas);
-        // Check if tracking was successful and publish pose
-        if(CheckSuccessfulTracking(Tcw))
-        {
-            PublishOrbSlamOutput(Tcw, img_msg, cv_ptr);
-        }
-    }
-    else
-    {
-        // Track without IMU measurements
-        Sophus::SE3f Tcw = pAgent->TrackMonocular(cv_ptr->image, t);
-        // Check if tracking was successful and publish pose
-        
-        if(CheckSuccessfulTracking(Tcw))
-        {
-            PublishOrbSlamOutput(Tcw, img_msg, cv_ptr);
-        }
+        PublishOrbSlamOutput(Tcw, img_msg, cv_ptr);
     }
 }
 
@@ -263,9 +242,8 @@ void MonocularInertialMode::Imu_callback(const sensor_msgs::msg::Imu::SharedPtr 
         t
     );
     
-    // Add to buffer (thread-safe with mutex)
-    std::lock_guard<std::mutex> lock(imu_mutex_);
-    imuBuffer_.push_back(imu_measurement);
+    // pass data to ORB SLAM
+    pAgent->TrackIMU(t, imu_measurement);
 }
 
 bool MonocularInertialMode::CheckSuccessfulTracking(Sophus::SE3f Tcw)
