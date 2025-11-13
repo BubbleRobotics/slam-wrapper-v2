@@ -7,14 +7,14 @@
 */
 
 //* Import all necessary modules
-#include "ros2_orb_slam3/common_mono_inertial.hpp" //* equivalent to orbslam3_ros/include/common.h
+#include "ros2_orb_slam3/mono.hpp" //* equivalent to orbslam3_ros/include/common.h
 
 //* main
 int main(int argc, char **argv){
     rclcpp::init(argc, argv); // Always the first line, initialize this node
     
     //* Declare a node object
-    auto node = std::make_shared<MonocularInertialMode>(); 
+    auto node = std::make_shared<MonoMode>(); 
     
     // rclcpp::Rate rate(20); // Set the desired update rate (e.g., 10 Hz)
 

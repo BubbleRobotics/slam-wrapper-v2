@@ -20,17 +20,17 @@ def generate_launch_description():
     # Create nodes
     mono_inertial_node: Node = Node(
             package='ros2_orb_slam3',
-            executable='mono_inertial_node_cpp',
+            executable='mono_node_cpp',
             name='mono_inertial_node',
             namespace='ORB_SLAM3',
             output='screen',
             parameters=[
-                {'settings_file': package_dir + '/orb_slam3/config/Monocular-Inertial/RealSense_D455.yaml'},
+                {'settings_file': package_dir + '/orb_slam3/config/Monocular-Inertial/Gazebo_Sim.yaml'},
                 {'voc_file': package_dir + '/orb_slam3/Vocabulary/ORBvoc.txt.bin'},
-                {'img_topic': '/cam_realsense/camera/infra2/image_rect_raw'},
-                {'imu_topic': '/cam_realsense/camera/imu'},
-                {'enable_debug_window': True},
-                {'is_inertial': True},
+                {'img_topic': '/camera_d455/color/image_raw'},
+                {'imu_topic': '/camera_d455/imu/data'},
+                {'enable_debug_window': False},
+                {'is_inertial': False},
             ]
     )
 
