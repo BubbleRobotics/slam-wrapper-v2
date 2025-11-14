@@ -102,10 +102,12 @@ void StereoMode::InitializeVSLAM(){
     
     if (isInertial)
     {
+        RCLCPP_INFO(this->get_logger(), "Setting to inertial mode");
         sensorType = ORB_SLAM3::System::IMU_STEREO;
     }
     else
     {
+        RCLCPP_INFO(this->get_logger(), "Setting to non-inertial mode");
         sensorType = ORB_SLAM3::System::STEREO;
     }
 
@@ -190,7 +192,7 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
     // check if it was successful and publish data
     if(CheckSuccessfulTracking(Tcw))
     {
-        PublishOrbSlamOutput(Tcw, left_img, left_cv_ptr);
+        // PublishOrbSlamOutput(Tcw, left_img, left_cv_ptr);
     }
     else
     {

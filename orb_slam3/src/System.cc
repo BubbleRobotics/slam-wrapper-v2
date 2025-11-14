@@ -303,10 +303,6 @@ Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, 
     mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
     mTrackedKeyPoints = mpTracker->mCurrentFrame.mvKeys;
 
-    cout << "Tracked keypoints: " << mTrackedKeyPoints.size() << endl;
-    cout << "Tracked map points: " << mTrackedMapPoints.size() << endl;
-    cout << "Tracking state: " << mTrackingState << endl;
-
     return Tcw;
 }
 
@@ -471,9 +467,9 @@ Sophus::SE3f System::TrackMonocular(const cv::Mat &im, const double &timestamp, 
 void System::TrackIMU(const double &timestamp, const IMU::Point &imuMeas)
 {
     // check if we use an IMU method
-    if (!(mSensor == System::IMU_MONOCULAR) || 
+    if (!((mSensor == System::IMU_MONOCULAR) || 
             (mSensor == System::IMU_STEREO) || 
-            (mSensor == System::IMU_RGBD)) 
+            (mSensor == System::IMU_RGBD))) 
     {
         // Display warning and return
         cout << "SYSTEM not set to use IMU data" << endl;
