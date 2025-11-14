@@ -303,6 +303,10 @@ Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, 
     mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
     mTrackedKeyPoints = mpTracker->mCurrentFrame.mvKeys;
 
+    cout << "Tracked keypoints: " << mTrackedKeyPoints.size() << endl;
+    cout << "Tracked map points: " << mTrackedMapPoints.size() << endl;
+    cout << "Tracking state: " << mTrackingState << endl;
+
     return Tcw;
 }
 

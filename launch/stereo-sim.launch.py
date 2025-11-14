@@ -28,8 +28,8 @@ def generate_launch_description():
             parameters=[
                 {'settings_file': package_dir + '/orb_slam3/config/Stereo/Gazebo.yaml'},
                 {'voc_file': package_dir + '/orb_slam3/Vocabulary/ORBvoc.txt.bin'},
-                {'img1_topic': '/camera_d455/ir_left/image_raw'},
-                {'img2_topic': '/camera_d455/ir_right/image_raw'},
+                {'img0_topic': '/camera_d455/ir_left/image_raw'},
+                {'img1_topic': '/camera_d455/ir_right/image_raw'},
                 {'enable_debug_window': True},
                 {'is_inertial': False},
             ]

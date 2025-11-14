@@ -1,3 +1,14 @@
+/* *************************************************************************** */
+/*                                                    ########  ########       */
+/*   mono.hpp                                         ##     ## ##     ##      */
+/*                                                    ##     ## ##     ##      */
+/*   By: Paul Joseph <paul@bubble-robotics.com>       ########  ########       */
+/*                                                    ##     ## ##   ##        */
+/*   Created: 2025/11/13 15:48:25 by Paul Joseph      ##     ## ##    ##       */
+/*   Updated: 2025/11/13 15:48:25 by Paul Joseph      ########  ##     ##      */
+/*                                                                             */
+/* *************************************************************************** */
+
 // Include file 
 #ifndef COMMON_HPP  // Header guard to prevent multiple inclusions
 #define COMMON_HPP
@@ -64,17 +75,10 @@ using std::placeholders::_1; //* TODO why this is suggested in official tutorial
 //* Node specific definitions
 class MonoMode : public rclcpp::Node
 {   
-    //* This slam node inherits from both rclcpp and ORB_SLAM3::System classes
-    //* public keyword needs to come before the class constructor and anything else
     public:
-    std::string experimentConfig = ""; // String to receive settings sent by the python driver
-    double timeStep; // Timestep data received from the python node
-    std::string receivedConfig = "";
-
-    //* Class constructor
-    MonoMode(); // Constructor 
-
-    ~MonoMode(); // Destructor
+        //* Class constructor
+        MonoMode(); // Constructor 
+        ~MonoMode(); // Destructor
         
     private:
  
@@ -94,8 +98,8 @@ class MonoMode : public rclcpp::Node
         std::string imuTopic = ""; // Topic to subscribe to receive IMU data from a python node
 
         //* Definitions of publisher and subscribers
-        rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr imgMsgSub_; // Subscriber to receive image messages
-        rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imuMsgSub_; // Subscriber to receive IMU messages
+        rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr imgSub_; // Subscriber to receive image messages
+        rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imuSub_; // Subscriber to receive IMU messages
 
         rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr posePub_;
         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odomPub_;
@@ -138,8 +142,8 @@ class MonoMode : public rclcpp::Node
         //   |  _|| |_| | | | | (__| |_| | (_) | | | \__ \ 
         //   |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/ 
         //* ROS callbacks
-        void Img_callback(const sensor_msgs::msg::Image::SharedPtr img_msg); // Callback to process RGB image and semantic matrix sent by Python node
-        void Imu_callback(const sensor_msgs::msg::Imu::SharedPtr imu_msg); // Callback to process IMU data sent by Python node
+        void ImgCallback(const sensor_msgs::msg::Image::SharedPtr img_msg); // Callback to process RGB image and semantic matrix sent by Python node
+        void ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg); // Callback to process IMU data sent by Python node
 
         //* Helper functions
         void InitializeVSLAM(); //* Method to bind an initialized VSLAM framework to this node

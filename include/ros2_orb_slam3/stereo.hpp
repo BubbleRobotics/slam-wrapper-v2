@@ -1,3 +1,14 @@
+/* *************************************************************************** */
+/*                                                    ########  ########       */
+/*   stereo.hpp                                       ##     ## ##     ##      */
+/*                                                    ##     ## ##     ##      */
+/*   By: Paul Joseph <paul@bubble-robotics.com>       ########  ########       */
+/*                                                    ##     ## ##   ##        */
+/*   Created: 2025/11/13 15:48:18 by Paul Joseph      ##     ## ##    ##       */
+/*   Updated: 2025/11/13 15:48:18 by Paul Joseph      ########  ##     ##      */
+/*                                                                             */
+/* *************************************************************************** */
+
 // Include file 
 #ifndef COMMON_HPP  // Header guard to prevent multiple inclusions
 #define COMMON_HPP
@@ -31,6 +42,16 @@
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
+#include "sensor_msgs/msg/imu.hpp"
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <nav_msgs/msg/path.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 using std::placeholders::_1;
 using std::placeholders::_2;
 
@@ -61,7 +82,6 @@ using std::placeholders::_2;
 //* Node specific definitions
 class StereoMode : public rclcpp::Node
 {   
-    //* This slam node inherits from both rclcpp and ORB_SLAM3::System classes
 
     //* Class constructor
     public:
@@ -71,34 +91,83 @@ class StereoMode : public rclcpp::Node
     private:
         
         // Class internal variables
-        std::string homeDir = "";
-        std::string packagePath = ""; //! Change to match path to your workspace
         std::string OPENCV_WINDOW = ""; // Set during initialization
         std::string nodeName = ""; // Name of this node
         std::string vocFilePath = ""; // Path to ORB vocabulary provided by DBoW2 package
         std::string settingsFilePath = ""; // Path to settings file provided by ORB_SLAM3 package
-        std::string img1Topic = ""; // Topic to subscribe to receive infra1 rec images
-        std::string img2Topic = ""; // Topic to subscribe to receive infra2 rec images
+
+        std::string img0Topic = ""; // Topic to subscribe to receive infra1 rec images
+        std::string img1Topic = ""; // Topic to subscribe to receive infra2 rec images
+        std::string imuTopic = "";
+
+        //* Definitions of publisher and subscribers
+        std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> img0Sub_;
+        std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> img1Sub_;
+        typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::msg::Image, sensor_msgs::msg::Image> ImgSyncPolicy;
+        std::shared_ptr<message_filters::Synchronizer<ImgSyncPolicy>> sync_;
+
+        rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imuSub_; // Subscriber to receive IMU messages
+
+        rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr posePub_;
+        rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odomPub_;
+        rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pathPub_;
+        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloudPub_;
+        rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr trackingImagePub_;
+
+        std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
 
         //* ORB_SLAM3 related variables
         ORB_SLAM3::System* pAgent; // pointer to a ORB SLAM3 object
         ORB_SLAM3::System::eSensor sensorType;
+
         bool enableDebugWindow = false;
         bool enablePangolinWindow = false; // Shows Pangolin window output
         bool enableOpenCVWindow = false; // Shows OpenCV window output
 
-        //* Definitions of publisher and subscribers
-        std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> left_sub_;
-        std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> right_sub_;
-        typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::msg::Image, sensor_msgs::msg::Image> MySyncPolicy;
-        std::shared_ptr<message_filters::Synchronizer<MySyncPolicy>> sync_;
+        bool isInertial = true;
 
+        nav_msgs::msg::Path path_;
+    
+        std::string worldFrameId_ = "mapOrb";
+        std::string cameraFrameOrbId = "cameraOrb";
+        std::string cameraFrameId_ = "";
+        std::string imuFrameId_ = "";
+        bool publishTf_ = true;
+        bool publishPointcloud_ = true;
+
+        // frame transform vars
+        tf2_ros::Buffer tf_buffer_;
+        tf2_ros::TransformListener tf_listener_;
+        geometry_msgs::msg::TransformStamped transformImuCam;
         //* Helper functions
         // ORB_SLAM3::eigenMatXf convertToEigenMat(const std_msgs::msg::Float32MultiArray& msg); // Helper method, converts semantic matrix eigenMatXf, a Eigen 4x4 float matrix
-        void initializeVSLAM(); //* Method to bind an initialized VSLAM framework to this node
 
-        void stereo_callback(const sensor_msgs::msg::Image::ConstSharedPtr &left_img,
+
+        //    _____                 _   _                  
+        //   |  ___|   _ _ __   ___| |_(_) ___  _ __  ___  
+        //   | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __| 
+        //   |  _|| |_| | | | | (__| |_| | (_) | | | \__ \ 
+        //   |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/ 
+
+        void InitializeVSLAM(); //* Method to bind an initialized VSLAM framework to this node
+
+        void StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &left_img,
                              const sensor_msgs::msg::Image::ConstSharedPtr &right_img);
+        void ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg); // Callback to process IMU data sent by Python node
+
+        bool InitImuCamTransform(); //* Method to initialize the transform between IMU and camera frames
+        bool CheckSuccessfulTracking(Sophus::SE3f Tcw); //* Method to check if tracking was successful and publish pose 
+
+        // Publishers for Orb Slam Output
+        void PublishOrbSlamOutput(const Sophus::SE3f& Twc, 
+                                    const sensor_msgs::msg::Image::ConstSharedPtr img_msg, 
+                                    const cv_bridge::CvImageConstPtr& cv_ptr);
+        void PublishPose(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
+        void PublishOdometry(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::ConstSharedPtr img_msg);
+        void PublishPath(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
+        void PublishTF(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::ConstSharedPtr img_msg);
+        void PublishMapPoints(const std_msgs::msg::Header& header);
+        void PublishTrackingImage(const cv::Mat& image, const sensor_msgs::msg::Image::ConstSharedPtr img_msg);
 };
 
 #endif

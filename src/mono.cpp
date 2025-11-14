@@ -54,11 +54,11 @@ MonoMode::MonoMode() :Node("mono_inertial_node"), tf_buffer_(this->get_clock()),
     RCLCPP_INFO(this->get_logger(), "imu_topic %s", imuTopic.c_str());
 
     // subscribe to the image messages
-    imgMsgSub_= this->create_subscription<sensor_msgs::msg::Image>(imgTopic, rclcpp::SensorDataQoS(), std::bind(&MonoMode::Img_callback, this, _1));
+    imgSub_= this->create_subscription<sensor_msgs::msg::Image>(imgTopic, rclcpp::SensorDataQoS(), std::bind(&MonoMode::ImgCallback, this, _1));
     // subscribe to the imu messages (if eneabled)
     if (isInertial)
     {
-        imuMsgSub_= this->create_subscription<sensor_msgs::msg::Imu>(imuTopic, rclcpp::SensorDataQoS(), std::bind(&MonoMode::Imu_callback, this, _1));
+        imuSub_= this->create_subscription<sensor_msgs::msg::Imu>(imuTopic, rclcpp::SensorDataQoS(), std::bind(&MonoMode::ImuCallback, this, _1));
     }
     // Publishers
     posePub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
@@ -172,7 +172,7 @@ bool MonoMode::InitImuCamTransform()
 }
 
 //* Callback to process image message and run SLAM node
-void MonoMode::Img_callback(const sensor_msgs::msg::Image::SharedPtr img_msg)
+void MonoMode::ImgCallback(const sensor_msgs::msg::Image::SharedPtr img_msg)
 {
     // set/update frame ID
     cameraFrameId_ = img_msg->header.frame_id;
@@ -200,7 +200,7 @@ void MonoMode::Img_callback(const sensor_msgs::msg::Image::SharedPtr img_msg)
     }
 }
 
-void MonoMode::Imu_callback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
+void MonoMode::ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
 {   
     // set/update frame ID
     imuFrameId_ = imu_msg->header.frame_id;
