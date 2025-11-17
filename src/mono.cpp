@@ -8,10 +8,10 @@
 
 
 //* Includes
-#include "ros2_orb_slam3/common_mono_inertial.hpp"
+#include "ros2_orb_slam3/mono.hpp"
 
 //* Constructor
-MonocularInertialMode::MonocularInertialMode() :Node("mono_inertial_node"), tf_buffer_(this->get_clock()),
+MonoMode::MonoMode() :Node("mono_inertial_node"), tf_buffer_(this->get_clock()),
       tf_listener_(tf_buffer_)
 {
     RCLCPP_INFO(this->get_logger(), "\nORB-SLAM3 (mono-inertial) NODE STARTED");
@@ -23,7 +23,6 @@ MonocularInertialMode::MonocularInertialMode() :Node("mono_inertial_node"), tf_b
     this->declare_parameter("imu_topic", "/imu/data"); // topic to receive IMU messages
     this->declare_parameter("enable_debug_window", true); // Enable debug window showing SLAM in pangolin/opencv
     this->declare_parameter("is_inertial", true); // switch for inertial and non-inertial mode
-    this->declare_parameter<std::string>("world_frame_id", "map");
     this->declare_parameter<bool>("publish_tf", true);
     this->declare_parameter<bool>("publish_pointcloud", true);
 
@@ -42,8 +41,6 @@ MonocularInertialMode::MonocularInertialMode() :Node("mono_inertial_node"), tf_b
     enableDebugWindow = enableDebugWindowParam.as_bool();
     rclcpp::Parameter isInertialParam = this->get_parameter("is_inertial");
     isInertial = isInertialParam.as_bool();
-    rclcpp::Parameter worldFrameIdParam = this->get_parameter("world_frame_id");
-    worldFrameId_ = worldFrameIdParam.as_string();
     rclcpp::Parameter publishTfParam = this->get_parameter("publish_tf");
     publishTf_ = publishTfParam.as_bool();
     rclcpp::Parameter publishPointcloudParam = this->get_parameter("publish_pointcloud");
@@ -57,11 +54,11 @@ MonocularInertialMode::MonocularInertialMode() :Node("mono_inertial_node"), tf_b
     RCLCPP_INFO(this->get_logger(), "imu_topic %s", imuTopic.c_str());
 
     // subscribe to the image messages
-    imgMsgSub_= this->create_subscription<sensor_msgs::msg::Image>(imgTopic, rclcpp::SensorDataQoS(), std::bind(&MonocularInertialMode::Img_callback, this, _1));
+    imgSub_= this->create_subscription<sensor_msgs::msg::Image>(imgTopic, rclcpp::SensorDataQoS(), std::bind(&MonoMode::ImgCallback, this, _1));
     // subscribe to the imu messages (if eneabled)
     if (isInertial)
     {
-        imuMsgSub_= this->create_subscription<sensor_msgs::msg::Imu>(imuTopic, rclcpp::SensorDataQoS(), std::bind(&MonocularInertialMode::Imu_callback, this, _1));
+        imuSub_= this->create_subscription<sensor_msgs::msg::Imu>(imuTopic, rclcpp::SensorDataQoS(), std::bind(&MonoMode::ImuCallback, this, _1));
     }
     // Publishers
     posePub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
@@ -91,7 +88,7 @@ MonocularInertialMode::MonocularInertialMode() :Node("mono_inertial_node"), tf_b
 }
 
 //* Destructor
-MonocularInertialMode::~MonocularInertialMode()
+MonoMode::~MonoMode()
 {   
     // Stop all threads
     // Call method to write the trajectory file
@@ -101,7 +98,7 @@ MonocularInertialMode::~MonocularInertialMode()
 }
 
 //* Method to bind an initialized VSLAM framework to this node
-void MonocularInertialMode::InitializeVSLAM(){
+void MonoMode::InitializeVSLAM(){
     
     // Watchdog, if the paths to vocabular and settings files are still not set
     if (vocFilePath == "file_not_set" || settingsFilePath == "file_not_set")
@@ -128,73 +125,10 @@ void MonocularInertialMode::InitializeVSLAM(){
     }
 
     pAgent = new ORB_SLAM3::System(vocFilePath, settingsFilePath, sensorType, enablePangolinWindow);
-    std::cout << "MonocularInertialMode node initialized" << std::endl; // TODO needs a better message
+    std::cout << "MonoMode node initialized" << std::endl; // TODO needs a better message
 }
 
-//* Callback to process image message and run SLAM node
-void MonocularInertialMode::Img_callback(const sensor_msgs::msg::Image::SharedPtr img_msg)
-{
-    // set/update frame ID
-    cameraFrameId_ = img_msg->header.frame_id;
-    // Convert ROS image message to OpenCV image
-    cv_bridge::CvImageConstPtr cv_ptr;
-    try
-    {
-        cv_ptr = cv_bridge::toCvShare(img_msg);
-    }
-    catch (cv_bridge::Exception& e)
-    {
-        RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
-        return;
-    }
-    
-    double t = img_msg->header.stamp.sec + img_msg->header.stamp.nanosec * 1e-9;
-    
-    // Get IMU measurements for this frame
-    std::vector<ORB_SLAM3::IMU::Point> vImuMeas;
-    if (isInertial)
-    {
-        {
-            std::lock_guard<std::mutex> lock(imu_mutex_);
-            std::swap(vImuMeas, imuBuffer_);
-        }
-        // Get all IMU measurements between last image and current image
-        // for(auto it = vImuMeasTemp.begin(); it != vImuMeasTemp.end(); )
-        // {
-        //     std::lock_guard<std::mutex> lock(imu_mutex_);
-        //     if(it->t <= t)
-        //     {
-        //         vImuMeas.push_back(*it);
-        //     }
-        //     else
-        //     {
-        //         ++it;
-        //     }
-        // }
-        
-        RCLCPP_INFO(this->get_logger(), "Number of IMU measurements for this frame: %d", vImuMeas.size());
-        // Track with IMU measurements
-        Sophus::SE3f Tcw = pAgent->TrackMonocular(cv_ptr->image, t, vImuMeas);
-        // Check if tracking was successful and publish pose
-        if(CheckSuccessfulTracking(Tcw))
-        {
-            PublishOrbSlamOutput(Tcw, img_msg, cv_ptr);
-        }
-    }
-    else
-    {
-        // Track without IMU measurements
-        Sophus::SE3f Tcw = pAgent->TrackMonocular(cv_ptr->image, t);
-        // Check if tracking was successful and publish pose
-        
-        if(CheckSuccessfulTracking(Tcw))
-        {
-            PublishOrbSlamOutput(Tcw, img_msg, cv_ptr);
-        }
-    }
-}
-
-bool MonocularInertialMode::InitImuCamTransform()
+bool MonoMode::InitImuCamTransform()
 {
     // check if frame IDs are set
     if (cameraFrameId_ == "" || imuFrameId_ == "")
@@ -227,6 +161,7 @@ bool MonocularInertialMode::InitImuCamTransform()
         RCLCPP_INFO(this->get_logger(), "transform: %f", transformImuCam.transform.rotation.x);
         RCLCPP_INFO(this->get_logger(), "transform: %f", transformImuCam.transform.rotation.y);
         RCLCPP_INFO(this->get_logger(), "transform: %f", transformImuCam.transform.rotation.z);
+
         return true;
             
     } catch (tf2::TransformException &ex) {
@@ -236,7 +171,36 @@ bool MonocularInertialMode::InitImuCamTransform()
     }
 }
 
-void MonocularInertialMode::Imu_callback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
+//* Callback to process image message and run SLAM node
+void MonoMode::ImgCallback(const sensor_msgs::msg::Image::SharedPtr img_msg)
+{
+    // set/update frame ID
+    cameraFrameId_ = img_msg->header.frame_id;
+    // Convert ROS image message to OpenCV image
+    cv_bridge::CvImageConstPtr cv_ptr;
+    try
+    {
+        cv_ptr = cv_bridge::toCvShare(img_msg);
+    }
+    catch (cv_bridge::Exception& e)
+    {
+        RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
+        return;
+    }
+    
+    double t = img_msg->header.stamp.sec + img_msg->header.stamp.nanosec * 1e-9;
+    
+    // Track 
+    Sophus::SE3f Tcw = pAgent->TrackMonocular(cv_ptr->image, t);
+
+    // Check if tracking was successful and publish pose
+    if(CheckSuccessfulTracking(Tcw))
+    {
+        PublishOrbSlamOutput(Tcw, img_msg, cv_ptr);
+    }
+}
+
+void MonoMode::ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
 {   
     // set/update frame ID
     imuFrameId_ = imu_msg->header.frame_id;
@@ -278,12 +242,11 @@ void MonocularInertialMode::Imu_callback(const sensor_msgs::msg::Imu::SharedPtr 
         t
     );
     
-    // Add to buffer (thread-safe with mutex)
-    std::lock_guard<std::mutex> lock(imu_mutex_);
-    imuBuffer_.push_back(imu_measurement);
+    // pass data to ORB SLAM
+    pAgent->TrackIMU(t, imu_measurement);
 }
 
-bool MonocularInertialMode::CheckSuccessfulTracking(Sophus::SE3f Tcw)
+bool MonoMode::CheckSuccessfulTracking(Sophus::SE3f Tcw)
 {
     // Check if tracking was successful
     if (!Tcw.translation().isZero(1e-6))
@@ -296,7 +259,7 @@ bool MonocularInertialMode::CheckSuccessfulTracking(Sophus::SE3f Tcw)
     }
 }
 
-void MonocularInertialMode::PublishOrbSlamOutput(const Sophus::SE3f& Tcw, 
+void MonoMode::PublishOrbSlamOutput(const Sophus::SE3f& Tcw, 
                                                 const sensor_msgs::msg::Image::SharedPtr img_msg,
                                                 const cv_bridge::CvImageConstPtr& cv_ptr)
 {
@@ -328,7 +291,7 @@ void MonocularInertialMode::PublishOrbSlamOutput(const Sophus::SE3f& Tcw,
     PublishTrackingImage(cv_ptr->image, img_msg);
 }
 
-void MonocularInertialMode::PublishPose(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
+void MonoMode::PublishPose(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
 {
     geometry_msgs::msg::PoseStamped pose_msg;
     pose_msg.header.stamp = header.stamp;
@@ -349,12 +312,12 @@ void MonocularInertialMode::PublishPose(const Sophus::SE3f& Twc, const std_msgs:
     posePub_->publish(pose_msg);
 }
 
-void MonocularInertialMode::PublishOdometry(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::SharedPtr img_msg)
+void MonoMode::PublishOdometry(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::SharedPtr img_msg)
 {
     nav_msgs::msg::Odometry odom_msg;
     odom_msg.header.stamp = img_msg->header.stamp;
     odom_msg.header.frame_id = worldFrameId_;
-    odom_msg.child_frame_id = "camera";
+    odom_msg.child_frame_id = cameraFrameOrbId;
     
     Eigen::Vector3f t = Twc.translation();
     Eigen::Quaternionf q = Twc.unit_quaternion();
@@ -368,14 +331,10 @@ void MonocularInertialMode::PublishOdometry(const Sophus::SE3f& Twc, const senso
     odom_msg.pose.pose.orientation.z = q.z();
     odom_msg.pose.pose.orientation.w = q.w();
     
-    // You can add velocity if available from SLAM
-    // odom_msg.twist.twist.linear.x = vx;
-    // odom_msg.twist.twist.angular.z = wz;
-    
     odomPub_->publish(odom_msg);
 }
 
-void MonocularInertialMode::PublishPath(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
+void MonoMode::PublishPath(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
 {
     geometry_msgs::msg::PoseStamped pose;
     pose.header.stamp = header.stamp;
@@ -399,12 +358,12 @@ void MonocularInertialMode::PublishPath(const Sophus::SE3f& Twc, const std_msgs:
     pathPub_->publish(path_);
 }
 
-void MonocularInertialMode::PublishTF(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::SharedPtr img_msg)
+void MonoMode::PublishTF(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::SharedPtr img_msg)
 {
     geometry_msgs::msg::TransformStamped transform;
     transform.header.stamp = img_msg->header.stamp;
     transform.header.frame_id = worldFrameId_;
-    transform.child_frame_id = "camera";
+    transform.child_frame_id = cameraFrameOrbId;
     
     Eigen::Vector3f t = Twc.translation();
     Eigen::Quaternionf q = Twc.unit_quaternion();
@@ -421,7 +380,7 @@ void MonocularInertialMode::PublishTF(const Sophus::SE3f& Twc, const sensor_msgs
     tfBroadcaster_->sendTransform(transform);
 }
 
-void MonocularInertialMode::PublishMapPoints(const std_msgs::msg::Header& header)
+void MonoMode::PublishMapPoints(const std_msgs::msg::Header& header)
 {
     // Get map points from ORB-SLAM3
     std::vector<ORB_SLAM3::MapPoint*> vpMPs = pAgent->GetTrackedMapPoints();
@@ -478,7 +437,7 @@ void MonocularInertialMode::PublishMapPoints(const std_msgs::msg::Header& header
     pointcloudPub_->publish(cloud_msg);
 }
 
-void MonocularInertialMode::PublishTrackingImage(const cv::Mat& image, 
+void MonoMode::PublishTrackingImage(const cv::Mat& image, 
                                                 const sensor_msgs::msg::Image::SharedPtr img_msg)
 {
     // Get tracked features from ORB-SLAM3 and draw them
@@ -493,6 +452,6 @@ void MonocularInertialMode::PublishTrackingImage(const cv::Mat& image,
     
     sensor_msgs::msg::Image::SharedPtr tracking_msg = 
         cv_bridge::CvImage(img_msg->header, img_msg->encoding, im_with_info).toImageMsg();
-
+    
     trackingImagePub_->publish(*tracking_msg);
 }

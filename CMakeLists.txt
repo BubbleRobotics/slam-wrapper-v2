@@ -160,38 +160,27 @@ set(g2o_PATH "${PROJECT_SOURCE_DIR}/orb_slam3/Thirdparty/g2o/lib/libg2o.so")
 install(FILES ${DBoW2_PATH} DESTINATION lib)
 install(FILES ${g2o_PATH} DESTINATION lib)
 
-
-# Add executable (monocular VSLAM node)
-add_executable(mono_node_cpp
-  src/mono_example.cpp
-  src/common.cpp
-)
-
 # Add executable (monocular-inertial VSLAM node)
-add_executable(mono_inertial_node_cpp
-  src/mono_inertial_node.cpp
-  src/common_mono_inertial.cpp
+add_executable(mono_node_cpp
+  src/mono_node.cpp
+  src/mono.cpp
 )
 
-# Add executable (Realsense VSLAM node)
-add_executable(realsense_node_cpp
-  src/realsense_node.cpp
-  src/common_realsense.cpp
+# Add executable (Stereo VSLAM node)
+add_executable(stereo_node_cpp
+  src/stereo_node.cpp
+  src/stereo.cpp
 )
 
 ament_target_dependencies(mono_node_cpp
   PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
-ament_target_dependencies(mono_inertial_node_cpp
-  PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS}
-)
-ament_target_dependencies(realsense_node_cpp
+ament_target_dependencies(stereo_node_cpp
   PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
 
 target_link_libraries(mono_node_cpp PUBLIC orb_slam3_lib) # Link a node with the internal shared library
-target_link_libraries(mono_inertial_node_cpp PUBLIC orb_slam3_lib) # Link a node with the internal shared library
-target_link_libraries(realsense_node_cpp PUBLIC orb_slam3_lib) # Link a node with the internal shared library
+target_link_libraries(stereo_node_cpp PUBLIC orb_slam3_lib) # Link a node with the internal shared library
 
 
 # Install all the header files in package/package/include
@@ -204,8 +193,16 @@ install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}/
 )
 
+# install orb config and vocabulary files
+install(DIRECTORY orb_slam3/config
+  DESTINATION share/${PROJECT_NAME}/orb_slam3/
+)
+install(DIRECTORY orb_slam3/Vocabulary
+  DESTINATION share/${PROJECT_NAME}/orb_slam3/
+)
+
 # Install our node and library
-install(TARGETS mono_node_cpp mono_inertial_node_cpp realsense_node_cpp orb_slam3_lib
+install(TARGETS mono_node_cpp stereo_node_cpp orb_slam3_lib
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
@@ -220,7 +217,6 @@ ament_export_dependencies(
   orb_slam3_lib
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
-
 
 # Python node
 # Install Python modules, submodules

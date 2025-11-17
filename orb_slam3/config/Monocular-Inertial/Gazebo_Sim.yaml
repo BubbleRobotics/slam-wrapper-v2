@@ -20,10 +20,10 @@ Camera1.p1: 0.0
 Camera1.p2: 0.0
 
 Camera.width: 640
-Camera.height: 360
+Camera.height: 480
 
 # Camera frames per second
-Camera.fps: 5
+Camera.fps: 15
 
 # Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
 Camera.RGB: 1
@@ -38,7 +38,7 @@ Camera.RGB: 1
 # WorldRPY.yaw: 0.0
 
 # Close/Far threshold. Baseline times.
-Stereo.ThDepth: 1.0
+Stereo.ThDepth: 40.0
 Stereo.b: 0.07732
 
 # Depth threshold
@@ -85,8 +85,8 @@ ORBextractor.nLevels: 4
 # Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.
 # Firstly we impose iniThFAST. If no corners are detected we impose a lower value minThFAST
 # You can lower these values if your images have low contrast
-ORBextractor.iniThFAST: 15
-ORBextractor.minThFAST: 5
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
 
 #--------------------------------------------------------------------------------------------
 # Viewer Parameters
