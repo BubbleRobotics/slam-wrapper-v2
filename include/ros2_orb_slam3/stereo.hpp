@@ -125,6 +125,7 @@ class StereoMode : public rclcpp::Node
         bool enableOpenCVWindow = false; // Shows OpenCV window output
 
         bool isInertial = true;
+        bool manualTimeSync = false;
 
         nav_msgs::msg::Path path_;
     

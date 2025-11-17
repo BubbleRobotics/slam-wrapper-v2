@@ -27,6 +27,7 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
     this->declare_parameter("imu_topic", "/imu/data"); // topic to receive IMU messages
     this->declare_parameter("enable_debug_window", true); // Enable debug window showing SLAM in pangolin/opencv
     this->declare_parameter("is_inertial", true); // switch for inertial and non-inertial mode
+    this->declare_parameter("manual_time_sync", false); // switch for manual time synchronization
     this->declare_parameter<bool>("publish_tf", true);
     this->declare_parameter<bool>("publish_pointcloud", true);
 
@@ -51,6 +52,8 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
     publishTf_ = publishTfParam.as_bool();
     rclcpp::Parameter publishPointcloudParam = this->get_parameter("publish_pointcloud");
     publishPointcloud_ = publishPointcloudParam.as_bool();
+    rclcpp::Parameter manualTimeSyncParam = this->get_parameter("manual_time_sync");
+    manualTimeSync = manualTimeSyncParam.as_bool();
     
     //* DEBUG print
     RCLCPP_INFO(this->get_logger(), "nodeName %s", nodeName.c_str());
@@ -184,7 +187,11 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
     }
     
     double t = left_img->header.stamp.sec + left_img->header.stamp.nanosec * 1e-9;
-    
+    if (manualTimeSync)
+    {
+        t = this->now().seconds();
+    }
+
     //* Perform all ORB-SLAM3 operations in Stereo mode
     //! Pose with respect to the camera coordinate frame not the world coordinate frame
     Sophus::SE3f Tcw = pAgent->TrackStereo(left_cv_ptr->image, right_cv_ptr->image, t);
@@ -212,6 +219,11 @@ void StereoMode::ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
     }
     // Buffer IMU measurements
     double t = imu_msg->header.stamp.sec + imu_msg->header.stamp.nanosec * 1e-9;
+
+    if (manualTimeSync)
+    {
+        t = this->now().seconds();
+    }
     // transform imu data to camera frame using ROS tf2 (use frame ID from IMU and camera)
     sensor_msgs::msg::Imu transformed_imu;
     // Transform linear acceleration
@@ -242,7 +254,7 @@ void StereoMode::ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
         transformed_imu.angular_velocity.z,
         t
     );
-    
+
     // pass data to ORB SLAM
     pAgent->TrackIMU(t, imu_measurement);
 }
