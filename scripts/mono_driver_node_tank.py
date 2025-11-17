@@ -54,7 +54,7 @@ class MonoDriver(Node):
         super().__init__(node_name) # Initializes the rclpy.Node class. It expects the name of the node
 
         # Initialize parameters to be passed from the command line (or launch file)
-        self.declare_parameter("settings_name","Tank")
+        self.declare_parameter("settings_name","TankTest")
         self.declare_parameter("image_seq","IMG_L")
 
         #* Parse values sent by command line
