@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
+project(G2O)
 # set(g2o_SOURCE_DIR "${PROJECT_SOURCE_DIR}/orb_slam3/Thirdparty/g2o")
 set(g2o_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
 
