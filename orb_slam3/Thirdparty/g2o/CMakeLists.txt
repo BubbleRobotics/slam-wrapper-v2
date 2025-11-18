@@ -1,7 +1,13 @@
 cmake_minimum_required(VERSION 3.10)
-project(G2O)
-# set(g2o_SOURCE_DIR "${PROJECT_SOURCE_DIR}/orb_slam3/Thirdparty/g2o")
-set(g2o_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
+project(g2o)
+
+# create a cmake flag that can be passed here at build
+option(LOCAL_ROOT_DIR "Set root dir to root" FALSE)
+
+set(g2o_SOURCE_DIR "${PROJECT_SOURCE_DIR}/orb_slam3/Thirdparty/g2o")
+if (${LOCAL_ROOT_DIR})
+  set(g2o_SOURCE_DIR ./)
+endif ()
 
 
 SET(g2o_C_FLAGS)
@@ -50,6 +56,15 @@ SET(g2o_CXX_FLAGS "${g2o_CXX_FLAGS} -Wall -W")
 # specifying compiler flags
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${g2o_CXX_FLAGS}")
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${g2o_C_FLAGS}")
+
+# Find Eigen3
+SET(EIGEN3_INCLUDE_DIR ${G2O_EIGEN3_INCLUDE})
+FIND_PACKAGE(Eigen3 3.1.0 REQUIRED)
+IF(EIGEN3_FOUND)
+  SET(G2O_EIGEN3_INCLUDE ${EIGEN3_INCLUDE_DIR} CACHE PATH "Directory of Eigen3")
+ELSE(EIGEN3_FOUND)
+  SET(G2O_EIGEN3_INCLUDE "" CACHE PATH "Directory of Eigen3")
+ENDIF(EIGEN3_FOUND)
 
 # Generate config.h
 SET(G2O_CXX_COMPILER "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER}")
