@@ -126,6 +126,7 @@ class StereoMode : public rclcpp::Node
 
         bool isInertial = true;
         bool manualTimeSync = false;
+        bool imu_from_yaml = false;
 
         nav_msgs::msg::Path path_;
     
