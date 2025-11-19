@@ -33,6 +33,7 @@ def generate_launch_description():
                 {'enable_debug_window': True},
                 {'is_inertial': True},
                 {'manual_time_sync': True},
+                {'imu_from_yaml': False},
             ]
     )
 

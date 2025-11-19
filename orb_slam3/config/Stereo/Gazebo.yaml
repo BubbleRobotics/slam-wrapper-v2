@@ -22,18 +22,37 @@ Camera1.cy: 244.42019653320312
 Stereo.ThDepth: 15.0 # TODO : Find out if this needs to be tuned
 Stereo.b: 0.095
 
+# Do not insert KFs when recently lost
+IMU.InsertKFsWhenLost: 0
+
+IMU.T_b_c1: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: f
+   data: [ 1.0, 0., 0.0 , 0.0,
+           0.0, 1.0, 0.0, 0.0,
+           0.0, 0.0, 1.0, 0.0,
+           0.0, 0.0, 0.0, 1.0]
+
+# IMU noise (Use those from VINS-mono)
+IMU.NoiseGyro: 1.0e-02 # 3 # 2.44e-4 #1e-3 # rad/s^0.5
+IMU.NoiseAcc: 1.0e-02 #2 # 1.47e-3 #1e-2 # m/s^1.5
+IMU.GyroWalk: 1.0e-02 # rad/s^1.5
+IMU.AccWalk: 1.0e-02 # m/s^2.5
+IMU.Frequency: 200.0
+
 #--------------------------------------------------------------------------------------------
 # ORB Parameters
 #--------------------------------------------------------------------------------------------
 
 # ORB Extractor: Number of features per image also needs to be tuned manually
-ORBextractor.nFeatures: 1200
+ORBextractor.nFeatures: 1000
 
 # ORB Extractor: Scale factor between levels in the scale pyramid
 ORBextractor.scaleFactor: 1.2
 
 # ORB Extractor: Number of levels in the scale pyramid
-ORBextractor.nLevels: 8
+ORBextractor.nLevels: 4
 
 # ORB Extractor: Fast threshold
 # Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.

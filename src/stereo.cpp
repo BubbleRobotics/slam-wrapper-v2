@@ -28,6 +28,7 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
     this->declare_parameter("enable_debug_window", true); // Enable debug window showing SLAM in pangolin/opencv
     this->declare_parameter("is_inertial", true); // switch for inertial and non-inertial mode
     this->declare_parameter("manual_time_sync", false); // switch for manual time synchronization
+    this->declare_parameter("imu_from_yaml", false); // switch for getting imu params from yaml instead of tf2
     this->declare_parameter<bool>("publish_tf", true);
     this->declare_parameter<bool>("publish_pointcloud", true);
 
@@ -54,15 +55,19 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
     publishPointcloud_ = publishPointcloudParam.as_bool();
     rclcpp::Parameter manualTimeSyncParam = this->get_parameter("manual_time_sync");
     manualTimeSync = manualTimeSyncParam.as_bool();
-    
+    rclcpp::Parameter imuFromYamlParam = this->get_parameter("imu_from_yaml");
+    imu_from_yaml = imuFromYamlParam.as_bool();
+
     //* DEBUG print
     RCLCPP_INFO(this->get_logger(), "nodeName %s", nodeName.c_str());
     RCLCPP_INFO(this->get_logger(), "voc_file %s", vocFilePath.c_str());
-    RCLCPP_INFO(this->get_logger(), "settings_file_path %s", settingsFilePath.c_str());\
+    RCLCPP_INFO(this->get_logger(), "settings_file_path %s", settingsFilePath.c_str());
     RCLCPP_INFO(this->get_logger(), "img0_topic %s", img0Topic.c_str());
     RCLCPP_INFO(this->get_logger(), "img1_topic %s", img1Topic.c_str());
     RCLCPP_INFO(this->get_logger(), "imu_topic %s", imuTopic.c_str());
     RCLCPP_INFO(this->get_logger(), "is_inertial %b", isInertial);
+    RCLCPP_INFO(this->get_logger(), "manual_time_sync %b", manualTimeSync);
+    RCLCPP_INFO(this->get_logger(), "imu_from_yaml %b", imu_from_yaml);
 
 
     //set up stereo subscribers with message_filters
@@ -78,6 +83,29 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
     if (isInertial)
     {
         imuSub_= this->create_subscription<sensor_msgs::msg::Imu>(imuTopic, rclcpp::SensorDataQoS(), std::bind(&StereoMode::ImuCallback, this, _1));
+    }
+
+    // Create publishers
+    posePub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
+        "~/camera_pose", 10);
+
+    odomPub_ = this->create_publisher<nav_msgs::msg::Odometry>(
+        "~/odometry", 10);
+
+    pathPub_ = this->create_publisher<nav_msgs::msg::Path>(
+        "~/trajectory", 10);
+
+    if (publishPointcloud_) {
+        pointcloudPub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
+            "~/map_points", 10);
+    }
+
+    trackingImagePub_ = this->create_publisher<sensor_msgs::msg::Image>(
+        "~/tracking_image", 10);
+    
+    // TF broadcaster
+    if (publishTf_) {
+        tfBroadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
     }
 
     InitializeVSLAM();
@@ -199,7 +227,7 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
     // check if it was successful and publish data
     if(CheckSuccessfulTracking(Tcw))
     {
-        // PublishOrbSlamOutput(Tcw, left_img, left_cv_ptr);
+        PublishOrbSlamOutput(Tcw, left_img, left_cv_ptr);
     }
     else
     {
@@ -210,15 +238,35 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
 
 void StereoMode::ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
 {   
+    // Buffer IMU measurements
+    double t = imu_msg->header.stamp.sec + imu_msg->header.stamp.nanosec * 1e-9;
     // set/update frame ID
     imuFrameId_ = imu_msg->header.frame_id;
+
+    // if the transformation is in the config yaml, directly use imu transformation from there
+    if(imu_from_yaml)
+    {
+        // directly use imu data 
+        ORB_SLAM3::IMU::Point imu_measurement(
+            imu_msg->linear_acceleration.x,
+            imu_msg->linear_acceleration.y,
+            imu_msg->linear_acceleration.z,
+            imu_msg->angular_velocity.x,
+            imu_msg->angular_velocity.y,
+            imu_msg->angular_velocity.z,
+            t
+        );
+
+        // pass data to ORB SLAM
+        pAgent->TrackIMU(t, imu_measurement);
+        return;
+    }
+
     // init transform between IMU and camera frames
     if (!InitImuCamTransform())
     {
         return; // cannot proceed without transform
     }
-    // Buffer IMU measurements
-    double t = imu_msg->header.stamp.sec + imu_msg->header.stamp.nanosec * 1e-9;
 
     if (manualTimeSync)
     {
