@@ -25,14 +25,14 @@ def generate_launch_description():
             namespace='ORB_SLAM3',
             output='screen',
             parameters=[
-                {'settings_file': package_dir + '/orb_slam3/config/Stereo/RealSense_D555.yaml'},
+                {'settings_file': package_dir + '/orb_slam3/config/Stereo/RealSense_D455.yaml'},
                 {'voc_file': package_dir + '/orb_slam3/Vocabulary/ORBvoc.txt.bin'},
                 {'img0_topic': '/cam_realsense/camera/infra1/image_rect_raw'},
                 {'img1_topic': '/cam_realsense/camera/infra2/image_rect_raw'},
                 {'imu_topic': '/cam_realsense/camera/imu'},
-                {'enable_debug_window': True},
+                {'enable_debug_window': False},
                 {'is_inertial': True},
-                {'manual_time_sync': True},
+                {'manual_time_sync': False},
                 {'imu_from_yaml': False},
             ]
     )
