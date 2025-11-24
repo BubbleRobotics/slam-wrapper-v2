@@ -119,6 +119,8 @@ StereoMode::~StereoMode()
     // Call method to write the trajectory file
     // Release resources and cleanly shutdown
     pAgent->Shutdown();
+    RCLCPP_INFO(this->get_logger(), "ORB-SLAM3 Stereo Node SHUTDOWN, saving trajectory...");
+    pAgent->SaveKeyFrameTrajectoryTUM("orb_slam3_stereo_trajectory.txt");
 }
 
 //* Method to bind an initialized VSLAM framework to this node
