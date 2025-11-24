@@ -2835,8 +2835,12 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int&
 
     //cout << "Total map points: " << lLocalMapPoints.size() << endl;
     for(map<int,int>::iterator mit=mVisEdges.begin(), mend=mVisEdges.end(); mit!=mend; mit++)
-    {
-        assert(mit->second>=3);
+    {   
+        // output warning if a keyframe doen not have too many edges
+        if(mit->second < 3)
+        {
+            cout << "WARNING: KeyFrame " << mit->first << " has only " << mit->second << " edges in local BA." << endl;
+        }
     }
 
     optimizer.initializeOptimization();

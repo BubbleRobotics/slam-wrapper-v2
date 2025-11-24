@@ -85,6 +85,29 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
         imuSub_= this->create_subscription<sensor_msgs::msg::Imu>(imuTopic, rclcpp::SensorDataQoS(), std::bind(&StereoMode::ImuCallback, this, _1));
     }
 
+    // Create publishers
+    posePub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
+        "~/camera_pose", 10);
+
+    odomPub_ = this->create_publisher<nav_msgs::msg::Odometry>(
+        "~/odometry", 10);
+
+    pathPub_ = this->create_publisher<nav_msgs::msg::Path>(
+        "~/trajectory", 10);
+
+    if (publishPointcloud_) {
+        pointcloudPub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
+            "~/map_points", 10);
+    }
+
+    trackingImagePub_ = this->create_publisher<sensor_msgs::msg::Image>(
+        "~/tracking_image", 10);
+    
+    // TF broadcaster
+    if (publishTf_) {
+        tfBroadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
+    }
+
     InitializeVSLAM();
 
 }
@@ -204,7 +227,7 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
     // check if it was successful and publish data
     if(CheckSuccessfulTracking(Tcw))
     {
-        // PublishOrbSlamOutput(Tcw, left_img, left_cv_ptr);
+        PublishOrbSlamOutput(Tcw, left_img, left_cv_ptr);
     }
     else
     {
