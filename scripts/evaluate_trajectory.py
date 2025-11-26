@@ -1,53 +1,27 @@
-"""
-Module for trajectory evaluation
-
-Note: 
-- The self-produced datasets do not have a ground truth.
-- The Malaga dataset does not provide orientation ground truths. The relative
-  error requires the orientation to align the subtrajectories at their starting
-  states. Hence, the relative error is not implemented for Malaga.
-"""
-
 from matplotlib import pyplot as plt
 from pathlib import Path
-import pickle
 import numpy as np
 from cv2 import Rodrigues
 from scipy.spatial.transform import Rotation
-# from initialise_vo import DataLoader
 
-# from utils import inverse_transformation, drawCamera
-USER_DS_QUESTION = "Which dataset results would you like to evaluate? Options are: 'parking' (1), 'kitti' (2), 'malaga' (3). Enter your choice as a number: "
-
-
-def get_ds_name_from_user():
-    response = input(USER_DS_QUESTION)
-    switcher = {
-        '1': "parking",
-        '2': "kitti",
-        '3': "malaga",
-    }
-    if response in switcher:
-        return switcher.get(response)
-    else:
-        print("Invalid, defaulting to 'kitti'")
-        return "kitti"
 
 class TrajectoryEval:
 
-    def __init__(self):
+    def __init__(self, odometry_path: str, gt_path: str):
         """
-        
-        ### Parameter
-        1. dataset_name : str
-            - Name of a dataset. Looks for the corresponding .pkl file of the folder 
-            "solution_trajectories". Should be one of ("parking", "malaga", "kitti",
-            "own_1", "own_2")
-        2. first_frame : int
-            - Where SLAM started. Specifically: the index of the second bootstrapping
-            frame. It is assumed that the poses list contain the T matrix for the
-            second bootstrapping frame as their first element, followed by one T for
-            every consecutive frame
+        Evaluate a trajectory against ground truth data by aligning time stamps
+
+        ### Parameters
+        1. odometry_path : str
+            Path to the .txt file containing the estimated poses relative to the
+            ws_blue directory. 
+            Expected format: (timestamp, tx, ty, tz, qx, qy, qz, qw) where columns
+            are space separated and timestamp is a float or double in seconds unix time
+        2. gt_path : str
+            Path to the .txt file containing the ground truth poses relative to 
+            the ws_blue directory. 
+            Expected format: (timestamp, tx, ty, tz, qx, qy, qz, qw) where columns
+            are space separated and timestamp is a float or double in seconds unix time
         """
 
         # Naming conventions:
@@ -62,33 +36,28 @@ class TrajectoryEval:
 
         # ---------- LOAD EST. TRAJECTORY FROM FILE ---------- #
 
-        trajec_file_path = Path.cwd().joinpath("data", 
-                                        "pipeline_runs", 
-                                        "tank", 
-                                        "Structure_Easy", 
-                                        "stereo_only",
-                                        "trajectory.txt")
-    
-        gt_file_path = Path.cwd().joinpath("data",
-                                        "ros2_bags",
-                                        "tank",
-                                        "gt",
-                                        "Structure_Easy",
-                                        "gt_data.txt")
+        trajec_file_path = Path.cwd().joinpath(odometry_path)
+        gt_file_path = Path.cwd().joinpath(gt_path)
 
         trajec = np.loadtxt(trajec_file_path.as_posix())
         gt = np.loadtxt(gt_file_path.as_posix())
-        gt[:, 0] = gt[:, 0] + 1e-9 * gt[:, 1]
 
-        closest_idx = np.array([np.argmin(np.abs(gt[:, 0] - t)) for t in trajec[:, 0]])
-        gt = gt[closest_idx, 2:]
+        # Which trajectory has fewer poses?
+        self.n_poses = min(trajec.shape[0], gt.shape[0])
+        if trajec.shape[0] <= gt.shape[0]:
+            # closest_idx translates from trajec indices to gt indices
+            closest_idx = np.array([np.argmin(np.abs(gt[:, 0] - t)) for t in trajec[:, 0]])
+            gt = gt[closest_idx]
+        else:
+            # closest_idx translates from gt indices to trajec indices
+            closest_idx = np.array([np.argmin(np.abs(trajec[:, 0] - t)) for t in gt[:, 0]])
+            trajec = trajec[closest_idx]
 
         # Quaternions to rotation matrices
         trajc_rotations = Rotation.from_quat(trajec[:, 4:8]).as_matrix()
-        gt_rotations = Rotation.from_quat(gt[:, 3:7]).as_matrix()
-        
-        self.n_poses = trajec.shape[0]
+        gt_rotations = Rotation.from_quat(gt[:, 4:8]).as_matrix()
 
+        # Adapt format of poses to what the rest of the code expects
         self.T_wc_list = []
         for i in range(self.n_poses):
             T = np.zeros((3, 4))
@@ -100,7 +69,7 @@ class TrajectoryEval:
         for i in range(self.n_poses):
             T = np.zeros((3, 4))
             T[:3, :3] = gt_rotations[i]
-            T[:3, 3] = gt[i, 0:3]
+            T[:3, 3] = gt[i, 1:4]
             self.gt_T_wc_list.append(T)
 
         self.T_wc_array = np.vstack(self.T_wc_list)
@@ -327,8 +296,6 @@ class TrajectoryEval:
         """
         Compute and visualise the relative error measures for several subtrajectory 
         lengths.
-        Note: since Malaga does not provide ground-truth orientations, the relative
-        error is not impoemented for this dataset.
 
         ### Parameters
         1. trajec_lengths: tuple
@@ -489,6 +456,8 @@ if __name__ == "__main__":
     # print(f"Root mean squared position ATE: {te.absolue_trajectory_error()}")
     # te.draw_trajectory(gt=True)
 
-    te = TrajectoryEval()
-    print()
+    te = TrajectoryEval(odometry_path="data/pipeline_runs/tank/Structure_Easy/stereo_only/trajectory.txt",
+                        gt_path="data/ros2_bags/tank/gt/Structure_Easy/gt_data.txt")
+    te.similarity_transform_3d()
+    te.draw_trajectory(gt=True)
 
