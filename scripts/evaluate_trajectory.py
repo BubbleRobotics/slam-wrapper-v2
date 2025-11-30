@@ -96,7 +96,7 @@ class TrajectoryEval:
         for i in range(self.n_poses):
             T = np.zeros((3, 4))
             T[:3, :3] = trajc_rotations[i]
-            T[:3, 3] = trajec[i, 1:4]  # * 10  # DEBUGGING: Scaling the estimated trajectory
+            T[:3, 3] = trajec[i, 1:4]
             self.T_wc_list.append(T)
         
         # DEBUGGING: Applying rotation to the ground truth
@@ -414,14 +414,25 @@ class TrajectoryEval:
         """
         Compute the ATE. The trajectories should already be aligned by use
         of self.similarity_transform_3d() at this point
+
+        ### Returns
+        1. position error in m
+        2. rotation error in deg
         """
 
-        # Compute the RMSE as shown on the lecture slides
-
-        RMSE = np.sqrt(np.sum((self.gt_T_wc_array[:, 3] 
+        # Position error
+        RMSE_pos = np.sqrt(np.sum((self.gt_T_wc_array[:, 3] 
                                - self.T_wc_array[:, 3])**2) / self.n_poses)
         
-        return RMSE
+        # Rotation error
+        Ri_hat = self.T_wc_array[:, :3].reshape(-1, 3, 3)
+        Ri = self.gt_T_wc_array[:, :3].reshape(-1, 3, 3)
+        delta_R = Ri @ Ri_hat.transpose(0, 2, 1)  # R_i * R_i_hat.T
+        delta_angle = Rotation.from_matrix(delta_R).magnitude()
+
+        RMSE_rot = np.sqrt(np.sum(delta_angle**2) / self.n_poses) * 180 / np.pi
+        
+        return RMSE_pos, RMSE_rot
     
     def _get_relative_error(self, trajectory_length: float):
         """
@@ -686,6 +697,9 @@ if __name__ == "__main__":
     # unnormalised [-0.01175016,  3.04671612, -0.03923125]
     te.draw_trajectory(gt=True, add_orientation_gt=0, add_orientation_est=0)
     te.similarity_transform_3d(align_all_frames=False)
-    # te.relative_error(trajec_lenghts=(2, 5, 10))
     te.draw_trajectory(gt=True, add_orientation_est=0, add_orientation_gt=0)
+    ate = te.absolue_trajectory_error()
+    print(f"ATE position error: {ate[0]:.4f} m")
+    print(f"ATE rotation error: {ate[1]:.4f} deg")
+    # te.relative_error(trajec_lenghts=(2, 5, 10))
 
