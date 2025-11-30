@@ -1,13 +1,26 @@
+"""
+Evaluate a trajectory against ground truth data
+
+Aligns the estimated trajectory to the ground truth, accounting for unobservables
+in monocular, stereo, and inertial configurations. The alignment occurs as specified
+by Zhang and Scaramuzza, "A Tutorial on Quantitative Trajectory Evaluation for Visual
+(-Intertial) Odometry.
+
+Implementation by clandsmeer
+"""
+
 from matplotlib import pyplot as plt
 from pathlib import Path
 import numpy as np
 from cv2 import Rodrigues
 from scipy.spatial.transform import Rotation
+from scipy.optimize import minimize_scalar
 
 
 class TrajectoryEval:
 
-    def __init__(self, odometry_path: str, gt_path: str):
+    def __init__(self, odometry_path: str, gt_path: str, sensor_config: str="mono",
+                 gravity_vector: list=None):
         """
         Evaluate a trajectory against ground truth data by aligning time stamps
 
@@ -22,6 +35,14 @@ class TrajectoryEval:
             the ws_blue directory. 
             Expected format: (timestamp, tx, ty, tz, qx, qy, qz, qw) where columns
             are space separated and timestamp is a float or double in seconds unix time
+        3. sensor_config : str
+            Choose one of ["stereo", "mono", "inertial"]
+            Select "interial" for either stereo-inertial or mono-inertial configurations.
+            This determines the kind of alignment transformation that is applied to
+            compensate for unobservables in the respective configurations.
+        4. gravity_vector : list (default: None)
+            - The gravity vector in world coordinates. Only needed for inertial. Pass
+            list or np.array of shape (3,)
         """
 
         # Naming conventions:
@@ -33,6 +54,19 @@ class TrajectoryEval:
         #
         #   gt_T_wc_list    The ground truth version of T_wc_list
         #   gt_T_wc_array   The ground truth version of T_wc_array
+
+        if sensor_config not in ["stereo", "mono", "inertial"]:
+            raise ValueError("sensor_config must be one of ['stereo', 'mono', 'inertial']")
+        else:
+            self.sensor_config = sensor_config
+
+        if sensor_config == "inertial":
+            if gravity_vector is None:
+                raise ValueError("gravity_vector must be provided for inertial configurations")
+            else:
+                self.gravity_vector = np.array(gravity_vector)
+                l2_norm = np.sum(self.gravity_vector**2)**0.5 # Normalize
+                self.gravity_vector = self.gravity_vector / l2_norm
 
         # ---------- LOAD EST. TRAJECTORY FROM FILE ---------- #
 
@@ -62,8 +96,14 @@ class TrajectoryEval:
         for i in range(self.n_poses):
             T = np.zeros((3, 4))
             T[:3, :3] = trajc_rotations[i]
-            T[:3, 3] = trajec[i, 1:4]
+            T[:3, 3] = trajec[i, 1:4]  # * 10  # DEBUGGING: Scaling the estimated trajectory
             self.T_wc_list.append(T)
+        
+        # DEBUGGING: Applying rotation to the ground truth
+        # u = np.array([1, 1, 1], dtype=float) / np.sqrt(3)
+        # theta = np.pi / 6
+        # # rotates points counter-clockwise around the vector u by theta radians
+        # R = Rotation.from_rotvec(theta * u).as_matrix()
 
         self.gt_T_wc_list = []
         for i in range(self.n_poses):
@@ -75,7 +115,8 @@ class TrajectoryEval:
         self.T_wc_array = np.vstack(self.T_wc_list)
         self.gt_T_wc_array = np.vstack(self.gt_T_wc_list)
                     
-    def draw_trajectory(self, gt=False, add_cam_frame=None):
+    def draw_trajectory(self, gt: bool=False, add_orientation_gt: int=None, 
+                        add_orientation_est: int=None,):
         """
         Draw the VO trajectory; plots the current self.T_wc
 
@@ -83,7 +124,14 @@ class TrajectoryEval:
         1. gt : bool (default: False)
             - Inidicate whether to add the ground truth trajectory to the plot.
             Call self.similarity_transform_3d() before setting this to true
-        2. add_cam_frame : int (default: None)
+        2. add_orientation_gt : int (default: None)
+            - Add the camera frame (3 arrows) at the corresponding frame index
+            of the VO trajectory. If None: no camera frame is added.
+            The colour coding of the arrows:
+                - c_X : Red
+                - c_Y : Green
+                - c_Z : Blue
+        3. add_orientation_est : int (default: None)
             - Add the camera frame (3 arrows) at the corresponding frame index
             of the VO trajectory. If None: no camera frame is added.
             The colour coding of the arrows:
@@ -98,7 +146,7 @@ class TrajectoryEval:
 
         fig = plt.figure()
         ax = fig.add_subplot(projection="3d")
-        ax.plot(w_t_wc__x, w_t_wc__y, w_t_wc__z, color="b")
+        ax.plot(w_t_wc__x, w_t_wc__y, w_t_wc__z, color="orange")
         ax.set_xlabel("$X_w$")
         ax.set_ylabel("$Y_w$")
         ax.set_zlabel("$Z_w$")
@@ -108,7 +156,7 @@ class TrajectoryEval:
             gt_w_t_wc__x = self.gt_T_wc_array[0::3, 3]
             gt_w_t_wc__y = self.gt_T_wc_array[1::3, 3]
             gt_w_t_wc__z = self.gt_T_wc_array[2::3, 3]
-            ax.plot(gt_w_t_wc__x, gt_w_t_wc__y, gt_w_t_wc__z, color="r")
+            ax.plot(gt_w_t_wc__x, gt_w_t_wc__y, gt_w_t_wc__z, color="purple")
             ax.legend(["VO estimate", "Ground truth"])
 
             # Compute the limits for the plot; same scale for both axes
@@ -139,21 +187,160 @@ class TrajectoryEval:
         ax.view_init(elev=-80, azim=-90, roll=0)
 
         # Add a camera frame at some position if desired:
-        if add_cam_frame is not None:
-            drawCamera(ax, self.T_wc_list[add_cam_frame][:, 3],
-                    self.T_wc_list[add_cam_frame][:, :3], 
-                    set_ax_limits=False)
+        if add_orientation_est is not None:
+            self._draw_orientation(ax, gt=False, frame_idx=add_orientation_est)
+        if add_orientation_gt is not None:
+            self._draw_orientation(ax, gt=True, frame_idx=add_orientation_gt)
         
         plt.show()
 
 
-    def similarity_transform_3d(self):
+    def similarity_transform_3d(self, align_all_frames: bool=True):
         """
         Apply a 3d similarity transform to the trajectory (Umeyama method).
-        Alignes the trajectory to the ground truth in terms of:
-        - Absolute scale
-        - Absolute rotation
-        - Absolute translation
+
+        - For mono:
+            Alignes the trajectory to the ground truth in terms of:
+            - Absolute scale
+            - Absolute rotation
+            - Absolute translation
+
+        - For stereo:
+            Alignes the trajectory to the ground truth in terms of:
+            - Absolute rotation
+            - Absolute translation
+
+        - For inertial (mono-inertial or stereo-inertial):
+            Alignes the trajectory to the ground truth in terms of:
+            - Rotation around gravity vector
+            - Absolute translation
+
+        ### Parameters
+        1. align_all_frames : bool (default: True)
+            - If True: use all frames to compute the similarity transform
+            - If False: only use the first frame to compute the transform
+        """
+
+        # --------- FIND R, t, s BY CASE ---------- #
+
+        if align_all_frames: 
+            if self.sensor_config == "mono":
+                R, t, s = self._find_transform_mono_stereo_all()
+            elif self.sensor_config == "stereo":
+                R, t, s = self._find_transform_mono_stereo_all()
+                s = 1  # no scale correction for stereo
+            elif self.sensor_config == "inertial":
+                R, t, s = self._find_transform_inertial_all()
+            # as checked in __init__(): sensor config is in ["mono", "stereo", "inertial"]
+        else:
+            if self.sensor_config == "stereo":
+                R, t, s = self._find_transform_stereo_first()
+            elif self.sensor_config == "inertial":
+                R, t, s = self._find_transform_inertial_first()
+            else:
+                raise ValueError("Cannot align only using first frame in mono config. " \
+                                 "To find the scale several poses are necessary.")
+
+        # ---------- APPLY SIMILARITY TRANSFORM TO TRAJECTORY ---------- #
+
+        w_t_wc = self.T_wc_array[:, 3].reshape(-1, 3)
+
+        # Rotate the camera frame orientations by R (not rescaling by s):
+        R_wc_dash = R @ self.T_wc_array[:, :3].reshape(-1, 3, 3)
+        R_wc_dash = R_wc_dash.reshape(-1, 3)
+
+        # Apply the similarity transform to the points w_t_wc
+        # use post- multiply with R.T since w_t_wc has position vectors along 
+        # the columns, not rows
+        t_dash = s * w_t_wc @ R.T + t
+
+        # Update self.T_wc_array and self.T_wc_list
+        self.T_wc_array = np.hstack((R_wc_dash, t_dash.reshape(-1, 1)))
+        self.T_wc_list = [self.T_wc_array[(3 * i):(3 * i + 3)] 
+                          for i in range(self.n_poses)]
+
+
+    def _find_transform_stereo_first(self):
+        """
+        Aligns the estimated trajctory to the ground truth by making the 
+        orientation of the first estimated frame be the orientation of 
+        the first ground truth frame
+
+        Returns:
+        1. R : np.array
+            - The (3 x 3) rotation matrix
+        2. t : np.array
+            - The (3,) translation vector
+        3. s : float
+            - The scale factor: always 1.0 for stereo
+        """
+
+        # first pose ground truth
+        gt_R_wc_0 = self.gt_T_wc_list[0][:, :3]
+        gt_t_wc_0 = self.gt_T_wc_list[0][:, 3]
+
+        # first pose estimated
+        R_wc_0 = self.T_wc_list[0][:, :3]
+        t_wc_0 = self.T_wc_list[0][:, 3]
+
+        # Rotation from estimated to ground truth
+        R = gt_R_wc_0 @ R_wc_0.T
+        t = gt_t_wc_0 - R @ t_wc_0
+
+        # Scale is not corrected, so return None for s
+        return R, t, 1.0
+        
+    def _find_transform_inertial_first(self):
+        """
+        Aligns the estimated trajctory to the ground truth by making the 
+        orientation of the first estimated frame be as close as possible to 
+        the orientation of the first ground truth frame, however we only 
+        allow rotation around the gravity vector.
+
+        Returns:
+        1. R : np.array
+            - The (3 x 3) rotation matrix
+        2. t : np.array
+            - The (3,) translation vector
+        3. s : float
+            - The scale factor: always 1.0 for inertial
+        """
+
+        # first pose ground truth
+        gt_R_wc_0 = self.gt_T_wc_list[0][:, :3]
+        gt_t_wc_0 = self.gt_T_wc_list[0][:, 3]
+
+        # first pose estimated
+        R_wc_0 = self.T_wc_list[0][:, :3]
+        t_wc_0 = self.T_wc_list[0][:, 3]
+
+        def cost_fn(theta):
+            R = Rotation.from_rotvec(theta * self.gravity_vector).as_matrix()
+            return -1 * np.trace(R @ R_wc_0 @ gt_R_wc_0.T)
+
+        # Find optimal roatation around gravity vector
+        res = minimize_scalar(cost_fn, 
+                              bounds=(-np.pi, np.pi), 
+                              method='bounded')
+
+        R = Rotation.from_rotvec(res.x * self.gravity_vector).as_matrix()
+        t = gt_t_wc_0 - R @ t_wc_0
+
+        # Scale is not corrected, so return 1 for s
+        return R, t, 1.0
+
+    def _find_transform_mono_stereo_all(self):
+        """
+        Use all positions of gt and estimated trajectory to find the similarity
+        transform parameters R, t, s according to the Umeyama method.
+
+        Returns:
+        1. R : np.array
+            - The (3 x 3) rotation matrix
+        2. t : np.array
+            - The (3,) translation vector
+        3. s : float
+            - The scale factor
         """
 
         # ---------- FIND R, t, s BY UMEYAMA ---------- #
@@ -192,19 +379,36 @@ class TrajectoryEval:
         # Find the solution translation vector t
         t = mu_p - s * R @ mu_p_hat
 
-        # ---------- APPLY SIMILARITY TRANSFORM TO TRAJECTORY ---------- #
+        return R, t, s
 
-        # Rotate the camera frame orientations by R (not rescaling by s):
-        R_wc_dash = self.T_wc_array[:, :3] @ R
+    def _find_transform_inertial_all(self):
 
-        # Apply the similarity transform to the points w_t_wc
-        t_dash = s * w_t_wc @ R.T + t
+        # The point coordinates in a (n x 3) array (...in world coordinates)
+        gt_w_t_wc = self.gt_T_wc_array[:, 3].reshape(-1, 3)
+        w_t_wc = self.T_wc_array[:, 3].reshape(-1, 3)
 
-        # Update self.T_wc_array and self.T_wc_list
-        self.T_wc_array = np.hstack((R_wc_dash, t_dash.reshape(-1, 1)))
-        self.T_wc_list = [self.T_wc_array[(3 * i):(3 * i + 3)] 
-                          for i in range(self.n_poses)]
+        # The mean point for the ground truth and estimated trajectors
+        mu_p_hat = np.mean(w_t_wc, axis=0)          # mean trajectory point
+        mu_p = np.mean(gt_w_t_wc, axis=0)           # mean g.t. point
 
+        # Differences of positions from the mean of the trajectory
+        P = (gt_w_t_wc - mu_p).T  # (3 x n)
+        P_hat = (w_t_wc - mu_p_hat).T  # (3 x n)
+        
+        def cost_fn(theta, P, P_hat):
+            R = Rotation.from_rotvec(theta * self.gravity_vector).as_matrix()
+            return -1 * np.trace(R @ P_hat @ P.T)
+
+        # Find optimal roatation around gravity vector
+        res = minimize_scalar(lambda theta: cost_fn(theta, P, P_hat), 
+                              bounds=(-np.pi, np.pi), 
+                              method='bounded')
+
+        R = Rotation.from_rotvec(res.x * self.gravity_vector).as_matrix()
+
+        t = mu_p - R @ mu_p_hat
+
+        return R, t, 1.0  # No scale correction for inertial
     
     def absolue_trajectory_error(self):
         """
@@ -436,28 +640,52 @@ class TrajectoryEval:
 
         return split_pos
 
+    def _draw_orientation(self, ax, gt: bool, frame_idx: int):
+        """
+        Draw the orientation axes at a given frame index
+
+        ### Parameters
+        1. ax : matplotlib axis
+            - The axis on which to draw
+        2. gt : bool
+            - Whether to draw the ground truth orientation (True) or the estimated one (False)
+        3. frame_idx : int
+            - The frame index at which to draw the orientation axes
+        """
+
+        if gt:
+            T_wc = self.gt_T_wc_list[frame_idx]
+        else:
+            T_wc = self.T_wc_list[frame_idx]
+
+        # Where the arrows will be put
+        origin = T_wc[:, 3]
+        c_X = T_wc[:, 0]
+        c_Y = T_wc[:, 1]
+        c_Z = T_wc[:, 2]
+
+        ax.quiver(origin[0], origin[1], origin[2],
+                  c_X[0], c_X[1], c_X[2],
+                  color="r", length=0.5, arrow_length_ratio=0.1)
+        ax.quiver(origin[0], origin[1], origin[2],
+                  c_Y[0], c_Y[1], c_Y[2],
+                  color="g", length=0.5, arrow_length_ratio=0.1)
+        ax.quiver(origin[0], origin[1], origin[2],
+                  c_Z[0], c_Z[1], c_Z[2],
+                  color="b", length=0.5, arrow_length_ratio=0.1)
+
 
 if __name__ == "__main__":
-    
-    # # Set the name and first frame. Make sure the trajectory file is in the directory
-    # dl = DataLoader(get_ds_name_from_user(), preload=False)
-    # te = TrajectoryEval(dataset_name=dl.dataset_str, first_frame=dl.init_frames[1])
 
-    # # To show the relative error:
-
-    # # Some suggestions for subtrajectory lengths (in meters)
-    # trajec_length_kitti = (7, 23, 31, 100)
-    # trajec_length_parking = (1, 5, 8)
-    # trajec_length_malaga = (20, 30)
-    # te.relative_error(trajec_lenghts=trajec_length_kitti)
-
-    # # To compute the absolute error and show the resulting plot:
-    # te.similarity_transform_3d()
-    # print(f"Root mean squared position ATE: {te.absolue_trajectory_error()}")
-    # te.draw_trajectory(gt=True)
+    # Example usage
 
     te = TrajectoryEval(odometry_path="data/pipeline_runs/tank/Structure_Easy/stereo_only/trajectory.txt",
-                        gt_path="data/ros2_bags/tank/gt/Structure_Easy/gt_data.txt")
-    te.similarity_transform_3d()
-    te.draw_trajectory(gt=True)
+                        gt_path="data/ros2_bags/tank/gt/Structure_Easy/gt_data.txt",
+                        sensor_config="stereo", gravity_vector=[-0, -1, 0])
+    # rotation around vector [-0.00385631,  0.99990967, -0.01287541]
+    # unnormalised [-0.01175016,  3.04671612, -0.03923125]
+    te.draw_trajectory(gt=True, add_orientation_gt=0, add_orientation_est=0)
+    te.similarity_transform_3d(align_all_frames=False)
+    # te.relative_error(trajec_lenghts=(2, 5, 10))
+    te.draw_trajectory(gt=True, add_orientation_est=0, add_orientation_gt=0)
 
