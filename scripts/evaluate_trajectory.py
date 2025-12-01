@@ -435,6 +435,9 @@ class TrajectoryEval:
     def _get_relative_error(self, trajectory_length: float):
         """
         The relative error is composed of two separable errors: roation and position.
+        Sub-trajectories are aligned to the position and orientation of the first
+        frame in the corresponding ground truth. The error is computed on the 
+        last frame of the sub-trajectory.
         Scale drift can also be visualised by the change of alignment scales across
         the trajectory
 
@@ -443,17 +446,42 @@ class TrajectoryEval:
             - Trajectory length in meters
 
         ### Returns
-        1. position error
-        2. rotation error
-        3. alignment scales
-        4. split and aligned trajectories
+        1. position error : np.array
+            - Shape (n_s,) where n_s is len(split_pos) - 1 ie. the maximum number
+            of sub-trajectories of (at least) the given length that fit into the 
+            estimated trajectory. 
+            - For each of the n_s sub-trajectories: position error delta_p_k as 
+            defined in equation 26 of the paper.
+        2. rotation error : np.array
+            - Shape (n_s,)
+            - Rotation error in degrees, computed as delta_phi_k in equation 26
+            of the paper
+        3. alignment scales : np.array
+            - Shape (n_s,)
+            - Only for mono mode
+            - Estimated trajectory is scaled until the position error at the 
+            last frame of the sub-trajectory is minimal
+            - Contains the scale factor used for each sub-trajectory
+            - Used to quantify scale drift
+        4. split and aligned trajectories : list(np.array)
+            - List of n_s np.arrays
+            - Each np.array: shape (3, n_p) where n_p is the number of poses
+            in the corresponding sub-trajectory
+            - Used to plot the sub-trajectories aligned at their first frame
+        5. split_pos : list
+            - List containing start and stop indices of each subtrajectory
+            - The stop index of sub-trajectory i is the start index of 
+            sub-trajectory i+1. Hence split_pos contains n_s + 1 integers
         """
 
         split_pos = self.re_get_split_pos(trajectory_length)
-        split_trajec = np.zeros([split_pos[-1], 3])
-        rot_err = np.zeros([len(split_pos) - 1, 3])
+        split_trajec = []
+        rot_err = np.zeros(len(split_pos) - 1)
         scales = np.zeros(len(split_pos) - 1)
         pos_err = np.zeros(len(split_pos) - 1)
+
+        T_wc = self.T_wc_array.reshape(-1, 3, 4)
+        gt_T_wc = self.gt_T_wc_array.reshape(-1, 3, 4)
 
         for i in range(len(split_pos) - 1):
 
@@ -463,45 +491,39 @@ class TrajectoryEval:
             # ---------- COMPUTE ROTATION ERROR ---------- #
 
             # Difference of rotation between the poses
-            R_align = self.gt_T_wc_list[pos][:, :3] @ self.T_wc_list[pos][:, :3].T
+            R_dash_s = gt_T_wc[pos, :, :3] @ T_wc[pos, :, :3].T 
 
             # Compute the rotation error at the last frame of the subtrajectory
+            R_dash_e = R_dash_s @ T_wc[next_pos, :, :3]
             # First apply alignment to the rotation estimation of the last frame
-            R_last_aligned = R_align @ self.T_wc_list[next_pos][:, :3] 
-            R_err = R_last_aligned @ self.gt_T_wc_list[next_pos][:, :3].T
+            R_k = gt_T_wc[next_pos, :, :3] @ R_dash_e.T
+
+            # R_last_aligned = R_dash_s @ self.T_wc_list[next_pos][:, :3]
+            # # R_err = self.gt_T_wc_list[next_pos][:, :3] @ R_last_aligned.T 
+            # R_k = R_last_aligned @ self.gt_T_wc_list[next_pos][:, :3].T
 
             # Convert the rotation error to vector representation and save
-            radian_error = Rodrigues(R_err)[0].flatten()
-            rot_err[i] = radian_error * 180 / np.pi
+            rot_err[i] = Rotation.from_matrix(R_k).magnitude() * 180 / np.pi
 
             # ---------- ALIGN THE SUBTRAJECTORIES ---------- #
 
-            # Estimated translations of the subtrajectory as a (3 x n)
-            t_est = self.T_wc_array[(3 * pos):(3 * next_pos), 3]
-            t_est = t_est.reshape(3, -1, order="F")
+            # Reshaping positions as (3, n) array
+            p_hat = T_wc[pos:(next_pos+1), :, 3].T
 
-            # Subtracting the first element: rotation around the first position
-            t_est_rel = t_est - np.c_[t_est[:, 0]]
-            t_est_rot = R_align @ t_est_rel
+            # Find translation vector for alignment at pose s (current pose)
+            t = gt_T_wc[pos, :, 3] - R_dash_s @ T_wc[pos, :, 3]
 
-            # Adapting the scale: Minimise the distance between the aligned vector
-            # and the ground truth
-            gt_end_vec = self.gt_T_wc_list[next_pos][:, 3] - self.gt_T_wc_list[pos][:, 3]
-            t_end_vec = t_est_rot[:, -1]
-            scale = np.dot(t_end_vec, gt_end_vec) / np.sum(t_end_vec**2)
-            t_est_rot *= scale
-            scales[i] = scale
+            # Monocular: find scale
+            if self.sensor_config == "mono":
+                pass
+            else:
+                p_hat_dash = R_dash_s @ p_hat + t.reshape(3, 1)
 
-            # Adding the translation vec of the GT's first pose:
-            t_aligned = t_est_rot + np.c_[self.gt_T_wc_list[pos][:, 3]]
+            pos_err[i] = np.linalg.norm(gt_T_wc[next_pos, :, 3] - R_k @ p_hat_dash[:, -1])
 
-            # Compute the position error after rescaling
-            pos_err[i] = np.sqrt(np.sum((t_aligned[:, -1]
-                                         - self.gt_T_wc_list[next_pos][:, 3])**2))
-
-            # Save the split trajectories for visualisation
-            split_trajec[pos:next_pos] = t_aligned.T
-
+            # Keep the transformed positions for visualisation later
+            split_trajec.append(p_hat_dash)
+        
         return pos_err, rot_err, scales, split_trajec, split_pos
 
 
@@ -521,7 +543,6 @@ class TrajectoryEval:
 
         pos_errs = []
         rot_errs = []
-        abs_rot_errs = []
         scale_drifts = []
         split_trajecs = []
         split_pos_s = []
@@ -535,9 +556,6 @@ class TrajectoryEval:
             scale_drifts.append(scale_drift)
             split_trajecs.append(split_trajec)
             split_pos_s.append(split_pos)
-
-            abs_rot_err = np.sqrt(np.sum(rot_err**2, axis=1))
-            abs_rot_errs.append(abs_rot_err)
 
         # ---------- STATISTICS PLOT ---------- #
 
@@ -554,7 +572,7 @@ class TrajectoryEval:
         axs["box_pos"].set_ylabel("Translation error [m]")
         axs["box_pos"].set_xticklabels([str(i) for i in trajec_lenghts])
 
-        axs["box_rot"].boxplot(abs_rot_errs)
+        axs["box_rot"].boxplot(rot_errs)
         axs["box_rot"].set_title("Rotation error")
         axs["box_rot"].set_xlabel("Subtrajectory length [m]")
         axs["box_rot"].set_ylabel("Rotation error [deg]")
@@ -570,10 +588,9 @@ class TrajectoryEval:
 
 
         # ---------- PLOT 3D ---------- #
-
-        w_t_wc__x = split_trajecs[-1][:, 0]
-        w_t_wc__y = split_trajecs[-1][:, 1]
-        w_t_wc__z = split_trajecs[-1][:, 2]
+        
+        # The split trajectories that are plotted are the ones of the length
+        # that is passed in the last position of the trajec_lengths vector
 
         gt_w_t_wc__x = self.gt_T_wc_array[0::3, 3]
         gt_w_t_wc__y = self.gt_T_wc_array[1::3, 3]
@@ -581,27 +598,31 @@ class TrajectoryEval:
 
         fig1 = plt.figure()
         ax = fig1.add_subplot(projection="3d")
-        ax.plot(gt_w_t_wc__x, gt_w_t_wc__y, gt_w_t_wc__z, color="r")
-        for i in range(len(split_pos) - 1):
-            ax.plot(w_t_wc__x[split_pos_s[-1][i]:split_pos_s[-1][i + 1]], 
-                    w_t_wc__y[split_pos_s[-1][i]:split_pos_s[-1][i + 1]], 
-                    w_t_wc__z[split_pos_s[-1][i]:split_pos_s[-1][i + 1]], color="b")
-            ax.plot(w_t_wc__x[split_pos_s[-1][i]], 
-                    w_t_wc__y[split_pos_s[-1][i]], 
-                    w_t_wc__z[split_pos_s[-1][i]], "go", markersize=3)
+
+        # plot ground truth
+        ax.plot(gt_w_t_wc__x, gt_w_t_wc__y, gt_w_t_wc__z, color="purple")
+
+        # Plot each split part of the estimated trajectory
+        for i in range(len(split_pos) - 1): # split_pos is the last element of split_pos_s
+            ax.plot(split_trajecs[-1][i][0, :], 
+                    split_trajecs[-1][i][1, :], 
+                    split_trajecs[-1][i][2, :], color="orange")
+            ax.plot(split_trajecs[-1][i][0, 0], 
+                    split_trajecs[-1][i][1, 0], 
+                    split_trajecs[-1][i][2, 0], "go", markersize=3)
         ax.set_xlabel("$X_w$")
         ax.set_ylabel("$Y_w$")
         ax.set_zlabel("$Z_w$")
         ax.set_title("Relative Trajectory Error")
-        ax.legend(["Ground truth", "VO estimate", "Subtrajectory"])
+        ax.legend(["Ground truth", "Estimate", "Subtrajectory"])
 
         # Compute the limits for the plot; same scale for both axes
-        xmin = np.min(np.r_[w_t_wc__x, gt_w_t_wc__x]) - 1
-        xmax = np.max(np.r_[w_t_wc__x, gt_w_t_wc__x]) + 1
-        ymin = np.min(np.r_[w_t_wc__y, gt_w_t_wc__y]) - 1
-        ymax = np.max(np.r_[w_t_wc__y, gt_w_t_wc__y]) + 1
-        zmin = np.min(np.r_[w_t_wc__z, gt_w_t_wc__z]) - 1
-        zmax = np.max(np.r_[w_t_wc__z, gt_w_t_wc__z]) + 1
+        xmin = np.min(gt_w_t_wc__x) - 1
+        xmax = np.max(gt_w_t_wc__x) + 1
+        ymin = np.min(gt_w_t_wc__y) - 1
+        ymax = np.max(gt_w_t_wc__y) + 1
+        zmin = np.min(gt_w_t_wc__z) - 1
+        zmax = np.max(gt_w_t_wc__z) + 1
 
         max_range = max(xmax - xmin, zmax - zmin, ymax - ymin)
         mid_x = 0.5 * (xmin + xmax)
@@ -759,14 +780,15 @@ if __name__ == "__main__":
     Structure_Hard = "/home/ubuntu/ws_blue/data/pipeline_runs/tank/Structure_Hard/stereo_only/live_trajec/live_trajec.txt"
     gt_Structure_Hard = "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/Structure_Hard/gt_data.txt"
 
-    te = TrajectoryEval(odometry_path=HalfTank_Medium,
-                        gt_path=gt_HalfTank_Medium,
+    te = TrajectoryEval(odometry_path=Structure_Easy,
+                        gt_path=gt_Structure_Easy,
                         sensor_config="stereo", gravity_vector=[-0, -1, 0])
     # rotation around vector [-0.00385631,  0.99990967, -0.01287541]
     # unnormalised [-0.01175016,  3.04671612, -0.03923125]
-    te.draw_trajectory(gt=True, add_orientation_gt=0, add_orientation_est=0)
+    # te.draw_trajectory(gt=True, add_orientation_gt=0, add_orientation_est=0)
     te.similarity_transform_3d(align_all_frames=True)
     te.draw_trajectory(gt=True, add_orientation_est=0, add_orientation_gt=0)
+    te.relative_error(trajec_lenghts=(1, 0.7, 0.5))
     ate = te.absolue_trajectory_error()
     print(f"{ate[0]:.3f}m -- ATE position error")
     print(f"{ate[1]:.2f}° -- ATE rotation error")
