@@ -26,13 +26,11 @@ class TrajectoryEval:
 
         ### Parameters
         1. odometry_path : str
-            Path to the .txt file containing the estimated poses relative to the
-            ws_blue directory. 
+            Path to the .txt file containing the estimated poses. Absolute path.
             Expected format: (timestamp, tx, ty, tz, qx, qy, qz, qw) where columns
             are space separated and timestamp is a float or double in seconds unix time
         2. gt_path : str
-            Path to the .txt file containing the ground truth poses relative to 
-            the ws_blue directory. 
+            Path to the .txt file containing the ground truth poses. Absolute path.
             Expected format: (timestamp, tx, ty, tz, qx, qy, qz, qw) where columns
             are space separated and timestamp is a float or double in seconds unix time
         3. sensor_config : str
@@ -70,8 +68,8 @@ class TrajectoryEval:
 
         # ---------- LOAD EST. TRAJECTORY FROM FILE ---------- #
 
-        trajec_file_path = Path.cwd().joinpath(odometry_path)
-        gt_file_path = Path.cwd().joinpath(gt_path)
+        trajec_file_path = Path(odometry_path)
+        gt_file_path = Path(gt_path)
 
         trajec = np.loadtxt(trajec_file_path.as_posix())
         gt = np.loadtxt(gt_file_path.as_posix())
@@ -746,19 +744,19 @@ if __name__ == "__main__":
 
     # Example usage
 
-    HalfTank_Hard = "data/pipeline_runs/tank/HalfTank_Hard/stereo_only/live_trajec/live_trajec.txt"
-    gt_HalfTank_Hard = "data/ros2_bags/tank/gt/HalfTank_Hard/gt_data.txt"
+    HalfTank_Hard = "/home/ubuntu/ws_blue/data/pipeline_runs/tank/HalfTank_Hard/stereo_only/live_trajec/live_trajec.txt"
+    gt_HalfTank_Hard = "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/HalfTank_Hard/gt_data.txt"
 
-    Structure_Easy = "data/pipeline_runs/tank/Structure_Easy/stereo_only/live_trajec/live_trajec.txt"
-    gt_Structure_Easy = "data/ros2_bags/tank/gt/Structure_Easy/gt_data.txt"
+    Structure_Easy = "/home/ubuntu/ws_blue/data/pipeline_runs/tank/Structure_Easy/stereo_only/live_trajec/live_trajec.txt"
+    gt_Structure_Easy = "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/Structure_Easy/gt_data.txt"
 
     te = TrajectoryEval(odometry_path=HalfTank_Hard,
                         gt_path=gt_HalfTank_Hard,
                         sensor_config="stereo", gravity_vector=[-0, -1, 0])
     # rotation around vector [-0.00385631,  0.99990967, -0.01287541]
     # unnormalised [-0.01175016,  3.04671612, -0.03923125]
-    te.draw_trajectory(gt=True, add_orientation_gt=0, add_orientation_est=0)
-    te.similarity_transform_3d(align_all_frames=True)
+    # te.draw_trajectory(gt=True, add_orientation_gt=0, add_orientation_est=0)
+    te.similarity_transform_3d(align_all_frames=False)
     te.draw_trajectory(gt=True, add_orientation_est=0, add_orientation_gt=0)
     ate = te.absolue_trajectory_error()
     print(f"{ate[0]:.3f}m -- ATE position error")
