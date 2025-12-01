@@ -38,14 +38,14 @@ Camera2.p2: 0.0
 
 # Stereo parameters
 Stereo.ThDepth: 15.0 # TODO : Find out if this needs to be tuned
-Stereo.b: 0.012
+Stereo.b: 0.12
 
 # Transformation between cameras
 Stereo.T_c1_c2: !!opencv-matrix
   rows: 4
   cols: 4
   dt: f
-  data: [ 1.0, 0.0, 0.0, -0.012,
+  data: [ 1.0, 0.0, 0.0, 0.12,
           0.0, 1.0, 0.0, 0.0,
           0.0, 0.0, 1.0, 0.0,
           0.0, 0.0, 0.0, 1.0 ]
@@ -64,7 +64,7 @@ IMU.T_b_c1: !!opencv-matrix
     cols: 4
     dt: f
     data: [ -0.0165,   -0.0175,   -0.9997,   -0.211687435,
-          -0.0106,    0.9998,   -0.0173,    -0.097259169,
+          -0.0106,    0.9998,   -0.0173,    -0.097259169, 
           0.9998,    0.0103,   -0.0167,    -0.056238089,
           0,  0,   0,    1 ]
 
