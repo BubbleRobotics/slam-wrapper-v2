@@ -76,16 +76,16 @@ class TrajectoryEval:
         trajec = np.loadtxt(trajec_file_path.as_posix())
         gt = np.loadtxt(gt_file_path.as_posix())
 
-        # Which trajectory has fewer poses?
-        self.n_poses = min(trajec.shape[0], gt.shape[0])
-        if trajec.shape[0] <= gt.shape[0]:
-            # closest_idx translates from trajec indices to gt indices
-            closest_idx = np.array([np.argmin(np.abs(gt[:, 0] - t)) for t in trajec[:, 0]])
-            gt = gt[closest_idx]
-        else:
-            # closest_idx translates from gt indices to trajec indices
-            closest_idx = np.array([np.argmin(np.abs(trajec[:, 0] - t)) for t in gt[:, 0]])
-            trajec = trajec[closest_idx]
+        # How many ground truth poses are in the file
+        n_gt_poses = gt.shape[0]
+
+        # Align trajectory and ground truth poses by time stamp
+        trajec, gt = self.time_align(trajec, gt, threshold=0.001)
+
+        self.n_poses = gt.shape[0]
+
+        # The fraction of ground truth poses that was actually used:
+        self.frac_gt_used = self.n_poses / n_gt_poses
 
         # Quaternions to rotation matrices
         trajc_rotations = Rotation.from_quat(trajec[:, 4:8]).as_matrix()
@@ -114,7 +114,7 @@ class TrajectoryEval:
 
         self.T_wc_array = np.vstack(self.T_wc_list)
         self.gt_T_wc_array = np.vstack(self.gt_T_wc_list)
-                    
+
     def draw_trajectory(self, gt: bool=False, add_orientation_gt: int=None, 
                         add_orientation_est: int=None,):
         """
@@ -684,22 +684,85 @@ class TrajectoryEval:
         ax.quiver(origin[0], origin[1], origin[2],
                   c_Z[0], c_Z[1], c_Z[2],
                   color="b", length=0.5, arrow_length_ratio=0.1)
+    
+    @staticmethod
+    def time_align(trajec: np.array, gt: np.array, threshold: float) -> tuple:
+        """
+        Align the estimated pose trajectory and the the ground truth poses using
+        the timestamps in the first column. Implements a threshold for minimum
+        distance in time, otherwise no match is found
+
+        ###Parameters
+        1. trajec : np.array
+            - (n_traj, 8) array of estimated poses. First column time stamp
+        2. gt : np.array
+            - (n_gt, 8) array of ground truth poses. First column time stamp
+        3. threshold : float
+            - Minimum distance in time for a match
+        
+        ###Returns:
+        1. cut_trajec : np.array
+            - (n_poses, 8) array of cut estimated poses that do have a corresponding
+            ground thruth within threshold
+        2. cut_gt : np.array
+            - (n_poses, 8) array of cut gt poses that do have a corresponding
+            estimated pose within threshold
+        """
+        
+        trajec_ts = trajec[:, 0]
+        gt_ts = gt[:, 0]
+        
+        # Find insertion positions
+        pos = np.searchsorted(gt_ts, trajec_ts)
+        
+        # Candidates: left and right neighbors
+        left = np.clip(pos - 1, 0, len(gt_ts) - 1)
+        right = np.clip(pos, 0, len(gt_ts) - 1)
+        
+        # Compute differences
+        left_diff = np.abs(gt_ts[left] - trajec_ts)
+        right_diff = np.abs(gt_ts[right] - trajec_ts)
+        
+        # Pick closer one
+        use_right = right_diff < left_diff
+        closest_sorted_idx = np.where(use_right, right, left)
+        closest_diff = np.where(use_right, right_diff, left_diff)
+        
+        # Cut trajectory entries that do not have a gt within threshold
+        mask = closest_diff <= threshold
+
+        # Estimated poses without corresponding ground truth are not useful
+        cut_trajec = trajec[mask]
+
+        # Cut also the ground truth to those poses that have a corresponding
+        # estimated poses
+        cut_closest_sorted_idx = closest_sorted_idx[mask]
+        cut_gt = gt[cut_closest_sorted_idx]
+
+        return cut_trajec, cut_gt
 
 
 if __name__ == "__main__":
 
     # Example usage
 
-    te = TrajectoryEval(odometry_path="data/pipeline_runs/tank/Structure_Easy/stereo_only/trajectory.txt",
-                        gt_path="data/ros2_bags/tank/gt/Structure_Easy/gt_data.txt",
+    HalfTank_Hard = "data/pipeline_runs/tank/HalfTank_Hard/stereo_only/live_trajec/live_trajec.txt"
+    gt_HalfTank_Hard = "data/ros2_bags/tank/gt/HalfTank_Hard/gt_data.txt"
+
+    Structure_Easy = "data/pipeline_runs/tank/Structure_Easy/stereo_only/live_trajec/live_trajec.txt"
+    gt_Structure_Easy = "data/ros2_bags/tank/gt/Structure_Easy/gt_data.txt"
+
+    te = TrajectoryEval(odometry_path=HalfTank_Hard,
+                        gt_path=gt_HalfTank_Hard,
                         sensor_config="stereo", gravity_vector=[-0, -1, 0])
     # rotation around vector [-0.00385631,  0.99990967, -0.01287541]
     # unnormalised [-0.01175016,  3.04671612, -0.03923125]
     te.draw_trajectory(gt=True, add_orientation_gt=0, add_orientation_est=0)
-    te.similarity_transform_3d(align_all_frames=False)
+    te.similarity_transform_3d(align_all_frames=True)
     te.draw_trajectory(gt=True, add_orientation_est=0, add_orientation_gt=0)
     ate = te.absolue_trajectory_error()
-    print(f"ATE position error: {ate[0]:.4f} m")
-    print(f"ATE rotation error: {ate[1]:.4f} deg")
+    print(f"{ate[0]:.3f}m -- ATE position error")
+    print(f"{ate[1]:.2f}° -- ATE rotation error")
+    print(f"{(te.frac_gt_used * 100):.1f}% -- Percentage of GT poses used" )
     # te.relative_error(trajec_lenghts=(2, 5, 10))
 
