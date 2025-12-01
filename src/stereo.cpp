@@ -378,7 +378,7 @@ void StereoMode::PublishOdometry(const Sophus::SE3f& Twc, const sensor_msgs::msg
     nav_msgs::msg::Odometry odom_msg;
     odom_msg.header.stamp = img_msg->header.stamp;
     odom_msg.header.frame_id = worldFrameId_;
-    odom_msg.child_frame_id = cameraFrameOrbId;
+    odom_msg.child_frame_id = cameraFrameId_;
     
     Eigen::Vector3f t = Twc.translation();
     Eigen::Quaternionf q = Twc.unit_quaternion();
@@ -424,7 +424,7 @@ void StereoMode::PublishTF(const Sophus::SE3f& Twc, const sensor_msgs::msg::Imag
     geometry_msgs::msg::TransformStamped transform;
     transform.header.stamp = img_msg->header.stamp;
     transform.header.frame_id = worldFrameId_;
-    transform.child_frame_id = cameraFrameOrbId;
+    transform.child_frame_id = cameraFrameId_;
     
     Eigen::Vector3f t = Twc.translation();
     Eigen::Quaternionf q = Twc.unit_quaternion();
@@ -440,6 +440,7 @@ void StereoMode::PublishTF(const Sophus::SE3f& Twc, const sensor_msgs::msg::Imag
     
     tfBroadcaster_->sendTransform(transform);
 }
+
 
 void StereoMode::PublishMapPoints(const std_msgs::msg::Header& header)
 {
