@@ -423,11 +423,14 @@ void StereoMode::PublishTF(const Sophus::SE3f& Twc, const sensor_msgs::msg::Imag
 {
     geometry_msgs::msg::TransformStamped transform;
     transform.header.stamp = img_msg->header.stamp;
-    transform.header.frame_id = worldFrameId_;
-    transform.child_frame_id = cameraFrameId_;
+    transform.header.frame_id = cameraFrameId_;
+    transform.child_frame_id = worldFrameId_;
     
-    Eigen::Vector3f t = Twc.translation();
-    Eigen::Quaternionf q = Twc.unit_quaternion();
+    // use inverse of Twc for transform from world to camera
+    Sophus::SE3f Tcw = Twc.inverse();
+
+    Eigen::Vector3f t = Tcw.translation();
+    Eigen::Quaternionf q = Tcw.unit_quaternion();
     
     transform.transform.translation.x = t.x();
     transform.transform.translation.y = t.y();
