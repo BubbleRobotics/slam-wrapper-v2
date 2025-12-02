@@ -15,6 +15,7 @@ import numpy as np
 from cv2 import Rodrigues
 from scipy.spatial.transform import Rotation
 from scipy.optimize import minimize_scalar
+from collections import namedtuple
 
 
 class TrajectoryEval:
@@ -40,7 +41,10 @@ class TrajectoryEval:
             compensate for unobservables in the respective configurations.
         4. gravity_vector : list (default: None)
             - The gravity vector in world coordinates. Only needed for inertial. Pass
-            list or np.array of shape (3,)
+            list or np.array of shape (3,). 
+            - The *orientation* of the coordinate systems in the gt and the estimated
+            trajectory is assumed to be the same, so the frame plays no role for
+            specifying this.
         """
 
         # Naming conventions:
@@ -158,7 +162,7 @@ class TrajectoryEval:
             gt_w_t_wc__y = self.gt_T_wc_array[1::3, 3]
             gt_w_t_wc__z = self.gt_T_wc_array[2::3, 3]
             ax.plot(gt_w_t_wc__x, gt_w_t_wc__y, gt_w_t_wc__z, color="purple")
-            ax.legend(["VO estimate", "Ground truth"])
+            ax.legend(["Estimate", "Ground truth"])
 
             # Compute the limits for the plot; same scale for both axes
             xmin = np.min(np.r_[w_t_wc__x, gt_w_t_wc__x]) - 1
@@ -196,9 +200,10 @@ class TrajectoryEval:
         plt.show()
 
 
-    def similarity_transform_3d(self, align_all_frames: bool=True):
+    def align(self, align_all_frames: bool=True):
         """
-        Apply a 3d similarity transform to the trajectory (Umeyama method).
+        Apply a 3d transform to the trajectory depending on the sensor
+        configuration
 
         - For mono:
             Alignes the trajectory to the ground truth in terms of:
@@ -210,11 +215,17 @@ class TrajectoryEval:
             Alignes the trajectory to the ground truth in terms of:
             - Absolute rotation
             - Absolute translation
+            When align_all_frames is False: it matters that the frame
+            of the gt and the estimated trajectory have coordinate
+            systems with the same *orientation" (position may differ)
 
         - For inertial (mono-inertial or stereo-inertial):
             Alignes the trajectory to the ground truth in terms of:
             - Rotation around gravity vector
             - Absolute translation
+            When align_all_frames is False: it matters that the frame
+            of the gt and the estimated trajectory have coordinate
+            systems with the same *orientation* (position may differ)
 
         ### Parameters
         1. align_all_frames : bool (default: True)
@@ -555,7 +566,7 @@ class TrajectoryEval:
         return pos_err, rot_err, scales, split_trajec, split_pos
 
 
-    def relative_error(self, trajec_lenghts=(1, 2, 3, 4, 5)):
+    def relative_error(self, trajec_lenghts=(1, 2, 3, 4, 5), show=True):
         """
         Compute and visualise the relative error measures for several subtrajectory 
         lengths.
@@ -568,6 +579,20 @@ class TrajectoryEval:
             - The smalles lenght provides information about scale drift
             - Note: since scale drift correction interacts with errors in terms of 
             rotation and translation, it should be taken with a grain of salt.
+        2. show: bool (default: True)
+            - Whether to show the output on the screen or just return / save
+
+        ### Returns
+        Named tuple of statistics concerning the relative error. One named tuple
+        for each trajec length
+        1. min
+        2. q2
+        3. median
+        4. q3
+        5. max
+        6. mean
+        7. std
+        8. n_subtraj (nuumber of subtrajectories)
         """
 
         n_lengths = len(trajec_lenghts)
@@ -681,7 +706,63 @@ class TrajectoryEval:
         # Have the camera view be the orientation of the world coord sys.
         ax.view_init(elev=-80, azim=-90, roll=0)
 
-        plt.show()
+        if show:
+            plt.show()
+
+        # ---------- OUTPUT STATISTICS ---------- #
+
+        # Named tuple containing one named tuple for every 
+        # sub-trajectory length (elements of trajec_length)
+        # Each child namedtuple is of type ReErrType
+        # Field names are the sub-trajectory lenghts coded as follows
+        fields = ["l" + str(s).replace(".", "p") for s in trajec_lenghts]
+        # E.g. (0.2, 1.5, 32) becomes ['l0p2', 'l1p5', 'l32']
+        ReSubTrajLen = namedtuple("ReSubTrajLen", fields)
+        # For looping through the subtrajectory lengths: placeholder list
+        placeholder = []
+
+        # Named tuple containing two namedtuples: one for position
+        # and one for rotation RE statistics. Both are of type ReStats.
+        # Also contains the number of subtrajectories
+        ReErrType = namedtuple("ReErrType", ["pos", "rot", "n_subtraj"])
+
+        # Named tuples containing the statistics
+        fields = ["min", "q2", "median", "q3", "max", "mean", "std"]
+        ReStats = namedtuple("RelErrStats", fields)
+
+        for i in range(n_lengths):
+
+            # Position statistics
+            pos_stats = ReStats(
+                min=pos_err.min(),
+                q2=np.percentile(pos_errs[i], 25),
+                median=np.percentile(pos_errs[i], 50),
+                q3=np.percentile(pos_errs[i], 75),
+                max=pos_err.max(),
+                mean=pos_err.mean(),
+                std=pos_err.std()
+            )
+            
+            # Rotation statistics
+            rot_stats = ReStats(
+                min=rot_err.min(),
+                q2=np.percentile(rot_errs[i], 25),
+                median=np.percentile(rot_errs[i], 50),
+                q3=np.percentile(rot_errs[i], 75),
+                max=rot_err.max(),
+                mean=rot_err.mean(),
+                std=rot_err.std()
+            )
+
+            # Pack into one named tuple, add to placeholder:
+            placeholder.append(ReErrType(
+                pos=pos_stats,
+                rot=rot_stats,
+                n_subtraj=len(pos_errs[i])
+            ))
+        
+        # Convert placeholder list to ReSubTrajLen namedtuple
+        return ReSubTrajLen(*placeholder)
 
     def re_get_split_pos(self, trajectory_length: float):
         """
@@ -843,8 +924,10 @@ if __name__ == "__main__":
     # rotation around vector [-0.00385631,  0.99990967, -0.01287541]
     # unnormalised [-0.01175016,  3.04671612, -0.03923125]
     # te.draw_trajectory(gt=True, add_orientation_gt=0, add_orientation_est=0)
-    # te.similarity_transform_3d(align_all_frames=True)
+    # te.align(align_all_frames=True)
     # te.draw_trajectory(gt=True, add_orientation_est=0, add_orientation_gt=0)
+    te.align(align_all_frames=False)
+    te.draw_trajectory(gt=True, add_orientation_est=0, add_orientation_gt=0)
     te.relative_error(trajec_lenghts=(0.5, 0.7, 1))
     ate = te.absolue_trajectory_error()
     print(f"{ate[0]:.3f}m -- ATE position error")
@@ -852,4 +935,3 @@ if __name__ == "__main__":
     print(f"{(te.frac_gt_used * 100):.1f}% -- Percentage of GT poses used" )
     print(f"GT length: {te.gt_length}")
     # te.relative_error(trajec_lenghts=(2, 5, 10))
-
