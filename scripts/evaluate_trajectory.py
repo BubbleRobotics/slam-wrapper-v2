@@ -518,22 +518,20 @@ class TrajectoryEval:
                 # Compute the scale such that the lengths of the estimated
                 # sub-trajectories matcth the length of the corresponding
                 # sub-trajectory in the GT
+                # Lenght of sub-trajectories as difference between first
+                # and last point of sub-trajectory.
                 
                 # Length of estmiated sub-trajectory
-                p_hat_shift = np.c_[p_hat[:, 1:], np.zeros((3, 1))]
-                diff_vec_est = p_hat_shift - p_hat
-                diff_vec_est = diff_vec_est[:, :-1]
-                length_est = np.sum(np.sqrt(np.sum(diff_vec_est ** 2, axis=0)))
+                diff_vec_est = p_hat[:, -1] - p_hat[:, 0]
+                length_est = np.linalg.norm(diff_vec_est)
 
                 # Length of corrsp. gt sub-trajectory
                 p = gt_T_wc[pos:(next_pos+1), :, 3].T
-                p_shift = np.c_[p[:, 1:], np.zeros((3, 1))]
-                diff_vec = p_shift - p
-                diff_vec = diff_vec[:, :-1]
-                length = np.sum(np.sqrt(np.sum(diff_vec ** 2, axis=0)))
+                diff_vec_gt = p[:, -1] - p[:, 0]
+                length_gt = np.linalg.norm(diff_vec_gt)
 
                 # Find necessary scaling factor:
-                s = length / length_est
+                s = length_gt / length_est
                 scales[i] = s
 
                 # Find translation vector for alignment at pose s (current pose)
@@ -567,7 +565,9 @@ class TrajectoryEval:
             - The subtrajectory lengths in meters for which the relative error and its
             statistics should be computed. 
             - For the last length: aligned sub-trajectories visualised in a 3D plot. 
-            - The first of these provides the information for the scale-drift plot
+            - The smalles lenght provides information about scale drift
+            - Note: since scale drift correction interacts with errors in terms of 
+            rotation and translation, it should be taken with a grain of salt.
         """
 
         n_lengths = len(trajec_lenghts)
@@ -590,12 +590,18 @@ class TrajectoryEval:
 
         # ---------- STATISTICS PLOT ---------- #
 
-        mosaic_struc = np.array([["box_pos"],
-                                 ["box_rot"],
-                                 ["scale"]])
+        if self.sensor_config == "mono":
+            mosaic_struc = np.array([["box_pos"],
+                                    ["box_rot"],
+                                    ["scale"]])
+            figsize = (6, 7)
+        else:
+            mosaic_struc = np.array([["box_pos"],
+                                    ["box_rot"]])
+            figsize = (6, 5)
 
         fig1, axs = plt.subplot_mosaic(mosaic_struc, layout="constrained",
-                                       figsize=(6, 7))
+                                       figsize=figsize)
         
         axs["box_pos"].boxplot(pos_errs)
         axs["box_pos"].set_title("Translation error")
@@ -609,18 +615,21 @@ class TrajectoryEval:
         axs["box_rot"].set_ylabel("Rotation error [deg]")
         axs["box_rot"].set_xticklabels([str(i) for i in trajec_lenghts])
 
-        # For analysing scale drift: use the smallest sub-trajectory length
-        min_length_idx = np.argmin(trajec_lenghts)
+        # If mono: analyse scale drift
+        if self.sensor_config == "mono":
+            
+            # For analysing scale drift: use the smallest sub-trajectory length
+            min_length_idx = np.argmin(trajec_lenghts)
 
-        dist_travelled = [trajec_lenghts[min_length_idx] * i 
-                          for i in range(len(scale_drifts[min_length_idx]))]
+            dist_travelled = [trajec_lenghts[min_length_idx] * i 
+                            for i in range(len(scale_drifts[min_length_idx]))]
 
-        # Plot scale correction factor for each consecutive sub-trajectory
-        axs["scale"].plot(dist_travelled, scale_drifts[min_length_idx])
-        axs["scale"].set_title("Scale Drift")
-        axs["scale"].set_xlabel("Lenght along the total trajectory [m]")
-        axs["scale"].set_ylabel("Scaling factor wrt. ground truth")
-        axs["scale"].grid(True)
+            # Plot scale correction factor for each consecutive sub-trajectory
+            axs["scale"].plot(dist_travelled, scale_drifts[min_length_idx])
+            axs["scale"].set_title("Scale Drift")
+            axs["scale"].set_xlabel("Lenght along the total trajectory [m]")
+            axs["scale"].set_ylabel("Scaling factor wrt. ground truth")
+            axs["scale"].grid(True)
 
         # ---------- PLOT 3D ---------- #
         
@@ -836,7 +845,7 @@ if __name__ == "__main__":
     # te.draw_trajectory(gt=True, add_orientation_gt=0, add_orientation_est=0)
     # te.similarity_transform_3d(align_all_frames=True)
     # te.draw_trajectory(gt=True, add_orientation_est=0, add_orientation_gt=0)
-    te.relative_error(trajec_lenghts=(1, 0.7, 0.5))
+    te.relative_error(trajec_lenghts=(0.5, 0.7, 1))
     ate = te.absolue_trajectory_error()
     print(f"{ate[0]:.3f}m -- ATE position error")
     print(f"{ate[1]:.2f}° -- ATE rotation error")
