@@ -77,6 +77,9 @@ class TrajectoryEval:
         # How many ground truth poses are in the file
         n_gt_poses = gt.shape[0]
 
+        # Total length of the gt trajectory (computed in _re_get_split_pos())
+        self.gt_length = None
+
         # Align trajectory and ground truth poses by time stamp
         trajec, gt = self.time_align(trajec, gt, threshold=0.001)
 
@@ -459,8 +462,8 @@ class TrajectoryEval:
         3. alignment scales : np.array
             - Shape (n_s,)
             - Only for mono mode
-            - Estimated trajectory is scaled until the position error at the 
-            last frame of the sub-trajectory is minimal
+            - Estimated trajectory is scaled such that the length of the estimated
+            sub-trajectory is equal to the length of the sub-trajectory in the GT
             - Contains the scale factor used for each sub-trajectory
             - Used to quantify scale drift
         4. split and aligned trajectories : list(np.array)
@@ -492,15 +495,12 @@ class TrajectoryEval:
 
             # Difference of rotation between the poses
             R_dash_s = gt_T_wc[pos, :, :3] @ T_wc[pos, :, :3].T 
-
-            # Compute the rotation error at the last frame of the subtrajectory
-            R_dash_e = R_dash_s @ T_wc[next_pos, :, :3]
+            
             # First apply alignment to the rotation estimation of the last frame
+            R_dash_e = R_dash_s @ T_wc[next_pos, :, :3]
+            
+            # Compute the rotation error at the last frame of the subtrajectory
             R_k = gt_T_wc[next_pos, :, :3] @ R_dash_e.T
-
-            # R_last_aligned = R_dash_s @ self.T_wc_list[next_pos][:, :3]
-            # # R_err = self.gt_T_wc_list[next_pos][:, :3] @ R_last_aligned.T 
-            # R_k = R_last_aligned @ self.gt_T_wc_list[next_pos][:, :3].T
 
             # Convert the rotation error to vector representation and save
             rot_err[i] = Rotation.from_matrix(R_k).magnitude() * 180 / np.pi
@@ -510,13 +510,43 @@ class TrajectoryEval:
             # Reshaping positions as (3, n) array
             p_hat = T_wc[pos:(next_pos+1), :, 3].T
 
-            # Find translation vector for alignment at pose s (current pose)
-            t = gt_T_wc[pos, :, 3] - R_dash_s @ T_wc[pos, :, 3]
-
-            # Monocular: find scale
             if self.sensor_config == "mono":
-                pass
+                
+                # MONOCULAR: FIND SCALE
+
+                # Extension to what the paper provides
+                # Compute the scale such that the lengths of the estimated
+                # sub-trajectories matcth the length of the corresponding
+                # sub-trajectory in the GT
+                
+                # Length of estmiated sub-trajectory
+                p_hat_shift = np.c_[p_hat[:, 1:], np.zeros((3, 1))]
+                diff_vec_est = p_hat_shift - p_hat
+                diff_vec_est = diff_vec_est[:, :-1]
+                length_est = np.sum(np.sqrt(np.sum(diff_vec_est ** 2, axis=0)))
+
+                # Length of corrsp. gt sub-trajectory
+                p = gt_T_wc[pos:(next_pos+1), :, 3].T
+                p_shift = np.c_[p[:, 1:], np.zeros((3, 1))]
+                diff_vec = p_shift - p
+                diff_vec = diff_vec[:, :-1]
+                length = np.sum(np.sqrt(np.sum(diff_vec ** 2, axis=0)))
+
+                # Find necessary scaling factor:
+                s = length / length_est
+                scales[i] = s
+
+                # Find translation vector for alignment at pose s (current pose)
+                t = gt_T_wc[pos, :, 3] - s * R_dash_s @ T_wc[pos, :, 3]
+
+                p_hat_dash = s * R_dash_s @ p_hat + t.reshape(3, 1)
+
             else:
+                # STEREO / INERTIAL: SCALE = 1
+
+                # Find translation vector for alignment at pose s (current pose)
+                t = gt_T_wc[pos, :, 3] - R_dash_s @ T_wc[pos, :, 3]
+
                 p_hat_dash = R_dash_s @ p_hat + t.reshape(3, 1)
 
             pos_err[i] = np.linalg.norm(gt_T_wc[next_pos, :, 3] - R_k @ p_hat_dash[:, -1])
@@ -535,8 +565,9 @@ class TrajectoryEval:
         ### Parameters
         1. trajec_lengths: tuple
             - The subtrajectory lengths in meters for which the relative error and its
-            statistics should be computed. The last of these can be visualised in a 3D
-            plot. The first of these provides the information for the scale-drift plot
+            statistics should be computed. 
+            - For the last length: aligned sub-trajectories visualised in a 3D plot. 
+            - The first of these provides the information for the scale-drift plot
         """
 
         n_lengths = len(trajec_lenghts)
@@ -578,14 +609,18 @@ class TrajectoryEval:
         axs["box_rot"].set_ylabel("Rotation error [deg]")
         axs["box_rot"].set_xticklabels([str(i) for i in trajec_lenghts])
 
-        dist_travelled = [trajec_lenghts[0] * i for i in range(len(scale_drifts[0]))]
+        # For analysing scale drift: use the smallest sub-trajectory length
+        min_length_idx = np.argmin(trajec_lenghts)
 
-        axs["scale"].plot(dist_travelled, scale_drifts[0])
+        dist_travelled = [trajec_lenghts[min_length_idx] * i 
+                          for i in range(len(scale_drifts[min_length_idx]))]
+
+        # Plot scale correction factor for each consecutive sub-trajectory
+        axs["scale"].plot(dist_travelled, scale_drifts[min_length_idx])
         axs["scale"].set_title("Scale Drift")
         axs["scale"].set_xlabel("Lenght along the total trajectory [m]")
         axs["scale"].set_ylabel("Scaling factor wrt. ground truth")
         axs["scale"].grid(True)
-
 
         # ---------- PLOT 3D ---------- #
         
@@ -644,14 +679,22 @@ class TrajectoryEval:
         Get the locations in the ground truth and the estimate trajectories at which 
         they should be split into sub-trajectories. A split is made where the trans-
         lation vectors of the ground truth add to trajectory_length. 
+        Also computes the total length of the ground truth trajectory and sets 
+        self.gt_length
 
         ### Parameters
         1. trajectory_lenght : float
             - Minimum length of each sub-trajectory in meters
+
+        ### Returns
+        1. split_pos : list
+            - Contains indices such that the distance travelled between the
+            corresponding frames is (at least) the trajectory_length
         """
 
         split_pos = [0]
-        travelled = 0 
+        travelled = 0
+        tot_travelled = 0
         previous_t = self.gt_T_wc_list[0][:, 3]
 
         for pos, gt_T_wc in enumerate(self.gt_T_wc_list):
@@ -664,9 +707,14 @@ class TrajectoryEval:
 
             if travelled >= trajectory_length:
                 split_pos.append(pos)
+                tot_travelled += travelled
                 travelled = 0
             
             previous_t = gt_T_wc[:, 3]
+
+        tot_travelled += travelled
+
+        self.gt_length = tot_travelled
 
         return split_pos
 
@@ -786,12 +834,13 @@ if __name__ == "__main__":
     # rotation around vector [-0.00385631,  0.99990967, -0.01287541]
     # unnormalised [-0.01175016,  3.04671612, -0.03923125]
     # te.draw_trajectory(gt=True, add_orientation_gt=0, add_orientation_est=0)
-    te.similarity_transform_3d(align_all_frames=True)
-    te.draw_trajectory(gt=True, add_orientation_est=0, add_orientation_gt=0)
+    # te.similarity_transform_3d(align_all_frames=True)
+    # te.draw_trajectory(gt=True, add_orientation_est=0, add_orientation_gt=0)
     te.relative_error(trajec_lenghts=(1, 0.7, 0.5))
     ate = te.absolue_trajectory_error()
     print(f"{ate[0]:.3f}m -- ATE position error")
     print(f"{ate[1]:.2f}° -- ATE rotation error")
     print(f"{(te.frac_gt_used * 100):.1f}% -- Percentage of GT poses used" )
+    print(f"GT length: {te.gt_length}")
     # te.relative_error(trajec_lenghts=(2, 5, 10))
 
