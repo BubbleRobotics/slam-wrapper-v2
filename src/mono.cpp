@@ -70,6 +70,9 @@ MonoMode::MonoMode() :Node("mono_inertial_node"), tf_buffer_(this->get_clock()),
     pathPub_ = this->create_publisher<nav_msgs::msg::Path>(
         "~/trajectory", 10);
 
+    gtPub_ = this->create_publisher<nav_msgs::msg::Odometry>(
+        "~/ground_truth", 10);
+
     if (publishPointcloud_) {
         pointcloudPub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
             "~/map_points", 10);
@@ -332,6 +335,29 @@ void MonoMode::PublishOdometry(const Sophus::SE3f& Twc, const sensor_msgs::msg::
     odom_msg.pose.pose.orientation.w = q.w();
     
     odomPub_->publish(odom_msg);
+
+    try {
+        // lookup latest available transform from 'map' to the realsense frame
+        geometry_msgs::msg::TransformStamped tf_map_realsense =
+            tf_buffer_.lookupTransform(worldGazeboFrameId_, realsenseFrameId_, tf2::TimePointZero);
+         nav_msgs::msg::Odometry gt_odom;
+         // Use image timestamp so SLAM outputs remain time-aligned
+         gt_odom.header.stamp = img_msg->header.stamp;
+         gt_odom.header.frame_id = worldGazeboFrameId_;
+         gt_odom.child_frame_id = realsenseFrameId_;
+ 
+         gt_odom.pose.pose.position.x = tf_map_realsense.transform.translation.x;
+         gt_odom.pose.pose.position.y = tf_map_realsense.transform.translation.y;
+         gt_odom.pose.pose.position.z = tf_map_realsense.transform.translation.z;
+         gt_odom.pose.pose.orientation = tf_map_realsense.transform.rotation;
+
+         gtPub_->publish(gt_odom);
+    }
+    catch (const tf2::TransformException &ex) {
+        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+            "Could not lookup map->%s transform: %s.",
+            realsenseFrameId_.c_str(), ex.what());
+    }
 }
 
 void MonoMode::PublishPath(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)

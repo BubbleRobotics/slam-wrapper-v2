@@ -27,10 +27,10 @@ def generate_launch_description():
             parameters=[
                 {'settings_file': package_dir + '/orb_slam3/config/Monocular-Inertial/Gazebo_Sim.yaml'},
                 {'voc_file': package_dir + '/orb_slam3/Vocabulary/ORBvoc.txt.bin'},
-                {'img_topic': '/camera_d455/color/image_raw'},
-                {'imu_topic': '/camera_d455/imu/data'},
-                {'enable_debug_window': False},
-                {'is_inertial': False},
+                {'img_topic': '/camera_d455/ir_left/image_raw'},
+                {'imu_topic': '/vectornav/Imu_raw'},
+                {'enable_debug_window': True},
+                {'is_inertial': True},
             ]
     )
 

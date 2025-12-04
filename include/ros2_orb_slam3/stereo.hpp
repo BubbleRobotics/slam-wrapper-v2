@@ -111,6 +111,7 @@ class StereoMode : public rclcpp::Node
         rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr posePub_;
         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odomPub_;
         rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pathPub_;
+        rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr gtPub_;
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloudPub_;
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr trackingImagePub_;
 
@@ -131,9 +132,11 @@ class StereoMode : public rclcpp::Node
         nav_msgs::msg::Path path_;
     
         std::string worldFrameId_ = "mapOrb";
-        std::string cameraFrameOrbId = "cameraOrb";
+        std::string cameraFrameOrbId_ = "cameraOrb";
         std::string cameraFrameId_ = "";
         std::string imuFrameId_ = "";
+        std::string worldGazeboFrameId_ = "map";
+        std::string realsenseFrameId_ = "realsense_d455_link_L";
         bool publishTf_ = true;
         bool publishPointcloud_ = true;
 
