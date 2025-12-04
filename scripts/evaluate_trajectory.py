@@ -615,96 +615,15 @@ class TrajectoryEval:
 
         # ---------- STATISTICS PLOT ---------- #
 
-        if self.sensor_config == "mono":
-            mosaic_struc = np.array([["box_pos"],
-                                    ["box_rot"],
-                                    ["scale"]])
-            figsize = (6, 7)
-        else:
-            mosaic_struc = np.array([["box_pos"],
-                                    ["box_rot"]])
-            figsize = (6, 5)
+        self.re_statistics_plot(trajec_lengths=trajec_lenghts,
+                                pos_errs=pos_errs,
+                                rot_errs=rot_errs,
+                                scale_drifts=scale_drifts)
 
-        fig1, axs = plt.subplot_mosaic(mosaic_struc, layout="constrained",
-                                       figsize=figsize)
+        # ---------- SUB-TRAJECTORY PLOT ---------- #
         
-        axs["box_pos"].boxplot(pos_errs)
-        axs["box_pos"].set_title("Translation error")
-        axs["box_pos"].set_xlabel("Subtrajectory length [m]")
-        axs["box_pos"].set_ylabel("Translation error [m]")
-        axs["box_pos"].set_xticklabels([str(i) for i in trajec_lenghts])
-
-        axs["box_rot"].boxplot(rot_errs)
-        axs["box_rot"].set_title("Rotation error")
-        axs["box_rot"].set_xlabel("Subtrajectory length [m]")
-        axs["box_rot"].set_ylabel("Rotation error [deg]")
-        axs["box_rot"].set_xticklabels([str(i) for i in trajec_lenghts])
-
-        # If mono: analyse scale drift
-        if self.sensor_config == "mono":
-            
-            # For analysing scale drift: use the smallest sub-trajectory length
-            min_length_idx = np.argmin(trajec_lenghts)
-
-            dist_travelled = [trajec_lenghts[min_length_idx] * i 
-                            for i in range(len(scale_drifts[min_length_idx]))]
-
-            # Plot scale correction factor for each consecutive sub-trajectory
-            axs["scale"].plot(dist_travelled, scale_drifts[min_length_idx])
-            axs["scale"].set_title("Scale Drift")
-            axs["scale"].set_xlabel("Lenght along the total trajectory [m]")
-            axs["scale"].set_ylabel("Scaling factor wrt. ground truth")
-            axs["scale"].grid(True)
-
-        # ---------- PLOT 3D ---------- #
-        
-        # The split trajectories that are plotted are the ones of the length
-        # that is passed in the last position of the trajec_lengths vector
-
-        gt_w_t_wc__x = self.gt_T_wc_array[0::3, 3]
-        gt_w_t_wc__y = self.gt_T_wc_array[1::3, 3]
-        gt_w_t_wc__z = self.gt_T_wc_array[2::3, 3]
-
-        fig1 = plt.figure()
-        ax = fig1.add_subplot(projection="3d")
-
-        # plot ground truth
-        ax.plot(gt_w_t_wc__x, gt_w_t_wc__y, gt_w_t_wc__z, color="purple")
-
-        # Plot each split part of the estimated trajectory
-        for i in range(len(split_pos) - 1): # split_pos is the last element of split_pos_s
-            ax.plot(split_trajecs[-1][i][0, :], 
-                    split_trajecs[-1][i][1, :], 
-                    split_trajecs[-1][i][2, :], color="orange")
-            ax.plot(split_trajecs[-1][i][0, 0], 
-                    split_trajecs[-1][i][1, 0], 
-                    split_trajecs[-1][i][2, 0], "go", markersize=3)
-        ax.set_xlabel("$X_w$")
-        ax.set_ylabel("$Y_w$")
-        ax.set_zlabel("$Z_w$")
-        ax.set_title("Relative Trajectory Error")
-        ax.legend(["Ground truth", "Estimate", "Subtrajectory"])
-
-        # Compute the limits for the plot; same scale for both axes
-        xmin = np.min(gt_w_t_wc__x) - 1
-        xmax = np.max(gt_w_t_wc__x) + 1
-        ymin = np.min(gt_w_t_wc__y) - 1
-        ymax = np.max(gt_w_t_wc__y) + 1
-        zmin = np.min(gt_w_t_wc__z) - 1
-        zmax = np.max(gt_w_t_wc__z) + 1
-
-        max_range = max(xmax - xmin, zmax - zmin, ymax - ymin)
-        mid_x = 0.5 * (xmin + xmax)
-        mid_z = 0.5 * (zmin + zmax)
-        mid_y = 0.5 * (ymin + ymax)
-
-        # Set the computed limits
-        ax.set_xlim(mid_x - 0.5 * max_range, mid_x + 0.5 * max_range)
-        ax.set_ylim(mid_y - 0.5 * max_range, mid_y + 0.5 * max_range)
-        ax.set_zlim(mid_z - 0.5 * max_range, mid_z + 0.5 * max_range)
-
-        # Have the camera view be the orientation of the world coord sys.
-        ax.view_init(elev=-80, azim=-90, roll=0)
+        self.re_subtrajectory_plot(split_pos=split_pos,  # plot these subtrajectories
+                                   split_trajecs=split_trajecs)
 
         if show:
             plt.show()
@@ -763,6 +682,133 @@ class TrajectoryEval:
         
         # Convert placeholder list to ReSubTrajLen namedtuple
         return ReSubTrajLen(*placeholder)
+
+    def re_statistics_plot(self, trajec_lengths, pos_errs, 
+                           rot_errs, scale_drifts):
+        """
+        Creates boxplot of the relative error
+
+        ### Parameters
+        1. trajec_lengths : tuple
+            - The order has to match the order of the corresponding arrays
+            in pos_errs, rot_errs, and scale_drifts
+        2. pos_errs : list(np.array)
+            - List of arrays with shape (n_s,)
+            - Each array contains the magnitude of the L2 position error
+            for each subtrajectory. Unit in m if the trajectory information
+            was in m
+        3. rot_errs : list(np.array)
+            - As pos_errs, but containing rotation error in degrees
+        4. scale_drifts : list(np.array)
+            - List of arrays with shape (n_s,)
+            - If self.sensor_config == "mono": contains the scaling
+            factors estimated by _get_relative_error()
+        """
+        
+        if self.sensor_config == "mono":
+            mosaic_struc = np.array([["box_pos"],
+                                    ["box_rot"],
+                                    ["scale"]])
+            figsize = (6, 7)
+        else:
+            mosaic_struc = np.array([["box_pos"],
+                                    ["box_rot"]])
+            figsize = (6, 5)
+
+        fig1, axs = plt.subplot_mosaic(mosaic_struc, layout="constrained",
+                                       figsize=figsize)
+        
+        axs["box_pos"].boxplot(pos_errs)
+        axs["box_pos"].set_title("Translation error")
+        axs["box_pos"].set_xlabel("Subtrajectory length [m]")
+        axs["box_pos"].set_ylabel("Translation error [m]")
+        axs["box_pos"].set_xticklabels([str(i) for i in trajec_lengths])
+
+        axs["box_rot"].boxplot(rot_errs)
+        axs["box_rot"].set_title("Rotation error")
+        axs["box_rot"].set_xlabel("Subtrajectory length [m]")
+        axs["box_rot"].set_ylabel("Rotation error [deg]")
+        axs["box_rot"].set_xticklabels([str(i) for i in trajec_lengths])
+
+        # If mono: analyse scale drift
+        if self.sensor_config == "mono":
+            
+            # For analysing scale drift: use the smallest sub-trajectory length
+            min_length_idx = np.argmin(trajec_lengths)
+
+            dist_travelled = [trajec_lengths[min_length_idx] * i 
+                            for i in range(len(scale_drifts[min_length_idx]))]
+
+            # Plot scale correction factor for each consecutive sub-trajectory
+            axs["scale"].plot(dist_travelled, scale_drifts[min_length_idx])
+            axs["scale"].set_title("Scale Drift")
+            axs["scale"].set_xlabel("Lenght along the total trajectory [m]")
+            axs["scale"].set_ylabel("Scaling factor wrt. ground truth")
+            axs["scale"].grid(True)
+
+    def re_subtrajectory_plot(self, split_pos, split_trajecs):
+        """
+        Creates 3D plot of how the subtrajectories align with the ground
+        truth
+
+        ### Parameters
+        1. split_pos : list
+            - List containing start and stop indices of each subtrajectory
+            - The stop index of sub-trajectory i is the start index of 
+            sub-trajectory i+1. Hence split_pos contains n_s + 1 integers
+        2. split_trajecs : list(list(np.array))
+            - Each element of outer list: represents specific subtrajectory
+            length
+            - Each element of inner list: represents a specific subtrajectory
+            as an array of shpae (3, n_s), representing (x, y, z) along the 
+            first axis
+        """
+
+        gt_w_t_wc__x = self.gt_T_wc_array[0::3, 3]
+        gt_w_t_wc__y = self.gt_T_wc_array[1::3, 3]
+        gt_w_t_wc__z = self.gt_T_wc_array[2::3, 3]
+
+        fig1 = plt.figure()
+        ax = fig1.add_subplot(projection="3d")
+
+        # plot ground truth
+        ax.plot(gt_w_t_wc__x, gt_w_t_wc__y, gt_w_t_wc__z, color="purple")
+
+        # Plot each split part of the estimated trajectory
+        for i in range(len(split_pos) - 1): # split_pos is the last element of split_pos_s
+            ax.plot(split_trajecs[-1][i][0, :], 
+                    split_trajecs[-1][i][1, :], 
+                    split_trajecs[-1][i][2, :], color="orange")
+            ax.plot(split_trajecs[-1][i][0, 0], 
+                    split_trajecs[-1][i][1, 0], 
+                    split_trajecs[-1][i][2, 0], "go", markersize=3)
+        ax.set_xlabel("$X_w$")
+        ax.set_ylabel("$Y_w$")
+        ax.set_zlabel("$Z_w$")
+        ax.set_title("Relative Trajectory Error")
+        ax.legend(["Ground truth", "Estimate", "Subtrajectory"])
+
+        # Compute the limits for the plot; same scale for both axes
+        xmin = np.min(gt_w_t_wc__x) - 1
+        xmax = np.max(gt_w_t_wc__x) + 1
+        ymin = np.min(gt_w_t_wc__y) - 1
+        ymax = np.max(gt_w_t_wc__y) + 1
+        zmin = np.min(gt_w_t_wc__z) - 1
+        zmax = np.max(gt_w_t_wc__z) + 1
+
+        max_range = max(xmax - xmin, zmax - zmin, ymax - ymin)
+        mid_x = 0.5 * (xmin + xmax)
+        mid_z = 0.5 * (zmin + zmax)
+        mid_y = 0.5 * (ymin + ymax)
+
+        # Set the computed limits
+        ax.set_xlim(mid_x - 0.5 * max_range, mid_x + 0.5 * max_range)
+        ax.set_ylim(mid_y - 0.5 * max_range, mid_y + 0.5 * max_range)
+        ax.set_zlim(mid_z - 0.5 * max_range, mid_z + 0.5 * max_range)
+
+        # Have the camera view be the orientation of the world coord sys.
+        ax.view_init(elev=-80, azim=-90, roll=0)
+
 
     def re_get_split_pos(self, trajectory_length: float):
         """
@@ -926,8 +972,8 @@ if __name__ == "__main__":
     # te.draw_trajectory(gt=True, add_orientation_gt=0, add_orientation_est=0)
     # te.align(align_all_frames=True)
     # te.draw_trajectory(gt=True, add_orientation_est=0, add_orientation_gt=0)
-    te.align(align_all_frames=False)
-    te.draw_trajectory(gt=True, add_orientation_est=0, add_orientation_gt=0)
+    # te.align(align_all_frames=False)
+    # te.draw_trajectory(gt=True, add_orientation_est=0, add_orientation_gt=0)
     te.relative_error(trajec_lenghts=(0.5, 0.7, 1))
     ate = te.absolue_trajectory_error()
     print(f"{ate[0]:.3f}m -- ATE position error")
