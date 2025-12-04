@@ -566,7 +566,7 @@ class TrajectoryEval:
         return pos_err, rot_err, scales, split_trajec, split_pos
 
 
-    def relative_error(self, trajec_lenghts=(1, 2, 3, 4, 5), show=True):
+    def relative_error(self, trajec_lenghts=(1, 2, 3, 4, 5), show=True, save=[None, None]):
         """
         Compute and visualise the relative error measures for several subtrajectory 
         lengths.
@@ -580,7 +580,11 @@ class TrajectoryEval:
             - Note: since scale drift correction interacts with errors in terms of 
             rotation and translation, it should be taken with a grain of salt.
         2. show: bool (default: True)
-            - Whether to show the output on the screen or just return / save
+            - Whether to show the output on the screen
+        3. save: list(string or pathlib.Path or None) (default [None, None])
+            - List of strings / pathlib.Path objects specifying the files the plots
+            should be saved to [statistics_plot.png, subtrajectory_plot.png]
+            - If either are None: the corresponding plot is not saved
 
         ### Returns
         Named tuple of statistics concerning the relative error. One named tuple
@@ -614,16 +618,20 @@ class TrajectoryEval:
             split_pos_s.append(split_pos)
 
         # ---------- STATISTICS PLOT ---------- #
-
-        self.re_statistics_plot(trajec_lengths=trajec_lenghts,
-                                pos_errs=pos_errs,
-                                rot_errs=rot_errs,
-                                scale_drifts=scale_drifts)
+        
+        if show or save[0] is not None:
+            self.re_statistics_plot(trajec_lengths=trajec_lenghts,
+                                    pos_errs=pos_errs,
+                                    rot_errs=rot_errs,
+                                    scale_drifts=scale_drifts,
+                                    save=save[0])
 
         # ---------- SUB-TRAJECTORY PLOT ---------- #
         
-        self.re_subtrajectory_plot(split_pos=split_pos,  # plot these subtrajectories
-                                   split_trajecs=split_trajecs)
+        if show or save[1] is not None:
+            self.re_subtrajectory_plot(split_pos=split_pos,  # plot these subtrajectories
+                                       split_trajecs=split_trajecs,
+                                       save=save[1])
 
         if show:
             plt.show()
@@ -684,7 +692,7 @@ class TrajectoryEval:
         return ReSubTrajLen(*placeholder)
 
     def re_statistics_plot(self, trajec_lengths, pos_errs, 
-                           rot_errs, scale_drifts):
+                           rot_errs, scale_drifts, save=None):
         """
         Creates boxplot of the relative error
 
@@ -703,32 +711,38 @@ class TrajectoryEval:
             - List of arrays with shape (n_s,)
             - If self.sensor_config == "mono": contains the scaling
             factors estimated by _get_relative_error()
+        5. save : pathlib.Path or str or None (default None)
+            - If not none: save the figure using this name
         """
         
         if self.sensor_config == "mono":
             mosaic_struc = np.array([["box_pos"],
                                     ["box_rot"],
                                     ["scale"]])
-            figsize = (6, 7)
+            figsize = (4, 7)
         else:
             mosaic_struc = np.array([["box_pos"],
                                     ["box_rot"]])
-            figsize = (6, 5)
+            figsize = (4, 5)
 
-        fig1, axs = plt.subplot_mosaic(mosaic_struc, layout="constrained",
-                                       figsize=figsize)
+        fig1, axs = plt.subplot_mosaic(mosaic_struc, 
+                                       layout="constrained",
+                                       figsize=figsize, 
+                                       num="Relative Error Statistics Plot")
         
         axs["box_pos"].boxplot(pos_errs)
         axs["box_pos"].set_title("Translation error")
         axs["box_pos"].set_xlabel("Subtrajectory length [m]")
         axs["box_pos"].set_ylabel("Translation error [m]")
         axs["box_pos"].set_xticklabels([str(i) for i in trajec_lengths])
+        axs["box_pos"].grid(visible=True, axis="y")
 
         axs["box_rot"].boxplot(rot_errs)
         axs["box_rot"].set_title("Rotation error")
         axs["box_rot"].set_xlabel("Subtrajectory length [m]")
         axs["box_rot"].set_ylabel("Rotation error [deg]")
         axs["box_rot"].set_xticklabels([str(i) for i in trajec_lengths])
+        axs["box_rot"].grid(visible=True, axis="y")
 
         # If mono: analyse scale drift
         if self.sensor_config == "mono":
@@ -746,7 +760,10 @@ class TrajectoryEval:
             axs["scale"].set_ylabel("Scaling factor wrt. ground truth")
             axs["scale"].grid(True)
 
-    def re_subtrajectory_plot(self, split_pos, split_trajecs):
+        if save is not None:
+            fig1.savefig(fname=save)
+
+    def re_subtrajectory_plot(self, split_pos, split_trajecs, save=None):
         """
         Creates 3D plot of how the subtrajectories align with the ground
         truth
@@ -762,13 +779,15 @@ class TrajectoryEval:
             - Each element of inner list: represents a specific subtrajectory
             as an array of shpae (3, n_s), representing (x, y, z) along the 
             first axis
+        3. save : pathlib.Path or string or None (default None)
+            - If not none: save the figure using this name
         """
 
         gt_w_t_wc__x = self.gt_T_wc_array[0::3, 3]
         gt_w_t_wc__y = self.gt_T_wc_array[1::3, 3]
         gt_w_t_wc__z = self.gt_T_wc_array[2::3, 3]
 
-        fig1 = plt.figure()
+        fig1 = plt.figure(num="Relative Error Subtrajectory Plot")
         ax = fig1.add_subplot(projection="3d")
 
         # plot ground truth
@@ -785,16 +804,17 @@ class TrajectoryEval:
         ax.set_xlabel("$X_w$")
         ax.set_ylabel("$Y_w$")
         ax.set_zlabel("$Z_w$")
-        ax.set_title("Relative Trajectory Error")
-        ax.legend(["Ground truth", "Estimate", "Subtrajectory"])
+        ax.legend(["Ground truth", "Estimate", "Subtrajectory"], 
+                  loc="lower left")
+        # ax.set_title("Subtrajectories RE")
 
         # Compute the limits for the plot; same scale for both axes
-        xmin = np.min(gt_w_t_wc__x) - 1
-        xmax = np.max(gt_w_t_wc__x) + 1
-        ymin = np.min(gt_w_t_wc__y) - 1
-        ymax = np.max(gt_w_t_wc__y) + 1
-        zmin = np.min(gt_w_t_wc__z) - 1
-        zmax = np.max(gt_w_t_wc__z) + 1
+        xmin = np.min(gt_w_t_wc__x) - 0.2
+        xmax = np.max(gt_w_t_wc__x) + 0.2
+        ymin = np.min(gt_w_t_wc__y) - 0.2
+        ymax = np.max(gt_w_t_wc__y) + 0.2
+        zmin = np.min(gt_w_t_wc__z) - 0.2
+        zmax = np.max(gt_w_t_wc__z) + 0.2
 
         max_range = max(xmax - xmin, zmax - zmin, ymax - ymin)
         mid_x = 0.5 * (xmin + xmax)
@@ -807,8 +827,10 @@ class TrajectoryEval:
         ax.set_zlim(mid_z - 0.5 * max_range, mid_z + 0.5 * max_range)
 
         # Have the camera view be the orientation of the world coord sys.
-        ax.view_init(elev=-80, azim=-90, roll=0)
+        ax.view_init(elev=-60, azim=-70, roll=-21)
 
+        if save is not None:
+            fig1.savefig(fname=save, dpi=fig1.dpi*2)
 
     def re_get_split_pos(self, trajectory_length: float):
         """
@@ -974,10 +996,10 @@ if __name__ == "__main__":
     # te.draw_trajectory(gt=True, add_orientation_est=0, add_orientation_gt=0)
     # te.align(align_all_frames=False)
     # te.draw_trajectory(gt=True, add_orientation_est=0, add_orientation_gt=0)
-    te.relative_error(trajec_lenghts=(0.5, 0.7, 1))
-    ate = te.absolue_trajectory_error()
-    print(f"{ate[0]:.3f}m -- ATE position error")
-    print(f"{ate[1]:.2f}° -- ATE rotation error")
-    print(f"{(te.frac_gt_used * 100):.1f}% -- Percentage of GT poses used" )
-    print(f"GT length: {te.gt_length}")
+    err = te.relative_error(trajec_lenghts=(0.5, 0.7, 1), show=False, save=["stat.png", "subtraj.png"])
+    # ate = te.absolue_trajectory_error()
+    # print(f"{ate[0]:.3f}m -- ATE position error")
+    # print(f"{ate[1]:.2f}° -- ATE rotation error")
+    # print(f"{(te.frac_gt_used * 100):.1f}% -- Percentage of GT poses used" )
+    # print(f"GT length: {te.gt_length}")
     # te.relative_error(trajec_lenghts=(2, 5, 10))
