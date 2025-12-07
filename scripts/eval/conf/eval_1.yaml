@@ -20,25 +20,40 @@ output_subdir:
 
 ### ---------- EVALUATION SETTINGS ---------- ###
 
+# How trajecotries are evaluated. For now only 
+# "stereo", "mono", and "inertial". Applied to all trajectories.
 eval_setting: "stereo"
 
+# Relative Trajectory Error
 rte:
+  do_analysis: true                     # if rte is computed
   trajec_lengths: [0.1, 0.4, 1.6, 6.4]
-  show: ture
+  show: false
   save:
-    subtrajec: true
+    subtrajec: false
     stats: true
 
+# Absolute Trajectory Error
 ate:
+  do_analysis: false                     # if ate is computed
   align_all_frames: false
 
 evals:
+  
   Structure_Easy:
     gt: ${paths.tank.gt.Structure_Easy}
     run:
-      stereo: ${paths.tank.run.s.Structure_Easy}
+      stereo: 
+        dir: ${paths.tank.run.s.Structure_Easy}
+        failures:
+          # Within the trajecotry above, what estimated
+          # trajectories have to be considered failures
+          # (lost tracking without recovering)
+          - live_trajec_01.txt
+  
   HalfTank_Medium: 
     gt: ${paths.tank.gt.HalfTank_Medium}
     run:
-      stereo: ${paths.tank.run.s.HalfTank_Medium}
-
+      stereo: 
+        dir: ${paths.tank.run.s.HalfTank_Medium}
+        failures: []

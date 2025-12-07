@@ -637,8 +637,6 @@ class TrajectoryEval:
 
         # Free up memory and prevent leakage to next plot
         plt.close("all")
-        # print([plt.figure(num).clf() for num in plt.get_fignums()])
-        # print("cleared plt")
 
         # ---------- OUTPUT STATISTICS ---------- #
 
@@ -729,10 +727,12 @@ class TrajectoryEval:
                                     ["box_rot"]])
             figsize = (4.5, 6)
 
+        figure_title = "Relative Error of "
+        figure_title += self.odometry_path.stem
         fig1, axs = plt.subplot_mosaic(mosaic_struc, 
                                        layout="constrained",
                                        figsize=figsize, 
-                                       num="Relative Error Statistics Plot")
+                                       num=figure_title)
 
         axs["box_pos"].grid(visible=True, axis="y")
         axs["box_pos"].set_title("Translation error")
@@ -794,7 +794,9 @@ class TrajectoryEval:
         gt_w_t_wc__y = self.gt_T_wc_array[1::3, 3]
         gt_w_t_wc__z = self.gt_T_wc_array[2::3, 3]
 
-        fig1 = plt.figure(num="Relative Error Subtrajectory Plot")
+        figure_title = "Relative Error Subtrajectories of "
+        figure_title += self.odometry_path.stem
+        fig1 = plt.figure(num=figure_title)
         ax = fig1.add_subplot(projection="3d")
 
         # plot ground truth
@@ -838,7 +840,6 @@ class TrajectoryEval:
 
         if save is not None:
             fig1.savefig(fname=save, dpi=fig1.dpi*2)
-            # fig1.clf()
 
     def re_get_split_pos(self, trajectory_length: float):
         """

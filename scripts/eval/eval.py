@@ -8,7 +8,7 @@ import hydra
 def main(cfg: DictConfig):
     
     me = TrajectoryEvalMulti(cfg)
-    me.relative_error()
+    me.do_analysis()
 
 # te = TrajectoryEval(odometry_path=Structure_Easy,
 #                     gt_path=gt_Structure_Easy,
