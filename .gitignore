@@ -1,4 +1,4 @@
 README.md
 *.mp4
 .vscode/
-scripts/evaluate_trajectory/__pycache__/**
+scripts/eval/evaluate_trajectory/__pycache__/**

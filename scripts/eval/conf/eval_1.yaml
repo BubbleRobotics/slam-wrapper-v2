@@ -1,0 +1,41 @@
+### ---------- DIRECTORY SETTINGS ---------- ###
+
+# Use the gt and estimated trajectory files specified in the paths.yaml file
+defaults:
+  - paths: paths
+  - _self_
+
+# Hydra settings: put the output files at the desired location, but keep hydras
+# odering by date and time
+hydra:
+  run: 
+    dir: /home/ubuntu/ws_blue/data/eval_output/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+# Within the output directory, create subdirectories. Implemented in EvaluateTrajecMulti
+output_subdir:
+  plots: ${hydra:runtime.output_dir}/plots
+
+### ---------- EVALUATION SETTINGS ---------- ###
+
+eval_setting: "stereo"
+
+rte:
+  trajec_lengths: [0.1, 0.4, 1.6, 6.4]
+  show: true
+  save:
+    subtrajec: true
+    stats: true
+
+ate:
+  align_all_frames: false
+
+evals:
+  Structure_Easy:
+    gt: ${paths.tank.gt.Structure_Easy}
+    run:
+      stereo: ${paths.tank.run.s.Structure_Easy}
+  HalfTank_Medium: 
+    gt: ${paths.tank.gt.HalfTank_Medium}
+    run:
+      stereo: ${paths.tank.run.s.HalfTank_Medium}
+

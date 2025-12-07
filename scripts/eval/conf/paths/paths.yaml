@@ -1,0 +1,26 @@
+# Contains the paths to the gt and trajectory files
+# This way, all the config files are more readible and if the file structure
+# of the input / output directories changes, you only have to modify this file
+
+### ---------- TANK DATASET ---------- ###
+
+tank:
+  gt:
+    HalfTank_Easy: "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/HalfTank_Easy/gt_data.txt"
+    HalfTank_Hard: "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/HalfTank_Hard/gt_data.txt"
+    HalfTank_Medium: "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/HalfTank_Medium/gt_data.txt"
+    Structure_Easy: "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/Structure_Easy/gt_data.txt"
+    Structure_Hard: "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/Structure_Hard/gt_data.txt"
+    Structure_Medium: "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/Structure_Hard/gt_data.txt"
+    WholeTank_Hard: "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/WholeTank_Hard/gt_data.txt"
+    WholeTank_Medium: "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/WholeTank_Medium/gt_data.txt"
+  run:
+    s: 
+      HalfTank_Easy: "/home/ubuntu/ws_blue/data/pipeline_runs/tank/HalfTank_Easy/stereo_only/live_trajec"
+      HalfTank_Hard: "/home/ubuntu/ws_blue/data/pipeline_runs/tank/HalfTank_Hard/stereo_only/live_trajec"
+      HalfTank_Medium: "/home/ubuntu/ws_blue/data/pipeline_runs/tank/HalfTank_Medium/stereo_only/live_trajec"
+      Structure_Easy: "/home/ubuntu/ws_blue/data/pipeline_runs/tank/Structure_Easy/stereo_only/live_trajec"
+      Structure_Hard: "/home/ubuntu/ws_blue/data/pipeline_runs/tank/Structure_Hard/stereo_only/live_trajec"
+      Structure_Medium: "/home/ubuntu/ws_blue/data/pipeline_runs/tank/Structure_Medium/stereo_only/live_trajec"
+      WholeTank_Hard: "/home/ubuntu/ws_blue/data/pipeline_runs/tank/WholeTank_Hard/stereo_only/live_trajec"
+      WholeTank_Medium: "/home/ubuntu/ws_blue/data/pipeline_runs/tank/WholeTank_Medium/stereo_only/live_trajec"

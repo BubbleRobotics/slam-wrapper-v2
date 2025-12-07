@@ -635,6 +635,9 @@ class TrajectoryEval:
         if show:
             plt.show()
 
+        # Free up memory and prevent leakage to next plot
+        plt.close()
+
         # ---------- OUTPUT STATISTICS ---------- #
 
         # Named tuple containing one named tuple for every 
@@ -718,30 +721,32 @@ class TrajectoryEval:
             mosaic_struc = np.array([["box_pos"],
                                     ["box_rot"],
                                     ["scale"]])
-            figsize = (4, 7)
+            figsize = (4.5, 7)
         else:
             mosaic_struc = np.array([["box_pos"],
                                     ["box_rot"]])
-            figsize = (4, 5)
+            figsize = (4.5, 6)
 
         fig1, axs = plt.subplot_mosaic(mosaic_struc, 
                                        layout="constrained",
                                        figsize=figsize, 
                                        num="Relative Error Statistics Plot")
-        
-        axs["box_pos"].boxplot(pos_errs)
+
+        axs["box_pos"].grid(visible=True, axis="y")
         axs["box_pos"].set_title("Translation error")
         axs["box_pos"].set_xlabel("Subtrajectory length [m]")
         axs["box_pos"].set_ylabel("Translation error [m]")
+        axs["box_pos"].set_xticks(range(1, len(trajec_lengths) + 1))
         axs["box_pos"].set_xticklabels([str(i) for i in trajec_lengths])
-        axs["box_pos"].grid(visible=True, axis="y")
+        axs["box_pos"].boxplot(pos_errs)
 
-        axs["box_rot"].boxplot(rot_errs)
+        axs["box_rot"].grid(visible=True, axis="y")
         axs["box_rot"].set_title("Rotation error")
         axs["box_rot"].set_xlabel("Subtrajectory length [m]")
         axs["box_rot"].set_ylabel("Rotation error [deg]")
+        axs["box_rot"].set_xticks(range(1, len(trajec_lengths) + 1))
         axs["box_rot"].set_xticklabels([str(i) for i in trajec_lengths])
-        axs["box_rot"].grid(visible=True, axis="y")
+        axs["box_rot"].boxplot(rot_errs)
 
         # If mono: analyse scale drift
         if self.sensor_config == "mono":
@@ -760,7 +765,8 @@ class TrajectoryEval:
             axs["scale"].grid(True)
 
         if save is not None:
-            fig1.savefig(fname=save)
+            fig1.savefig(fname=save, bbox_inches="tight")
+            # fig1.clf()
 
     def re_subtrajectory_plot(self, split_pos, split_trajecs, save=None):
         """
@@ -830,6 +836,7 @@ class TrajectoryEval:
 
         if save is not None:
             fig1.savefig(fname=save, dpi=fig1.dpi*2)
+            # fig1.clf()
 
     def re_get_split_pos(self, trajectory_length: float):
         """
@@ -965,3 +972,16 @@ class TrajectoryEval:
 
         return cut_trajec, cut_gt
 
+if __name__ == "__main__":
+
+    Structure_Easy = "/home/ubuntu/ws_blue/data/pipeline_runs/tank/Structure_Easy/stereo_only/live_trajec/live_trajec_01.txt"
+    gt_Structure_Easy = "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/Structure_Easy/gt_data.txt"
+
+    te = TrajectoryEval(odometry_path=Structure_Easy,
+                        gt_path=gt_Structure_Easy,    
+                        sensor_config="stereo", gravity_vector=[-0, -1, 0])
+    
+    te.relative_error(trajec_lenghts=[0.1, 0.4, 1.6, 6.4],
+                      show=True
+                      # save=[Path().cwd().joinpath("subtraj.png"), Path().cwd().joinpath("stats.png")]
+                      )
