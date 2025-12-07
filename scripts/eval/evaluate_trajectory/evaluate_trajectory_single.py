@@ -71,10 +71,10 @@ class TrajectoryEval:
 
         # ---------- LOAD EST. TRAJECTORY FROM FILE ---------- #
 
-        trajec_file_path = Path(odometry_path)
+        self.odometry_path = Path(odometry_path)
         gt_file_path = Path(gt_path)
 
-        trajec = np.loadtxt(trajec_file_path.as_posix())
+        trajec = np.loadtxt(self.odometry_path.as_posix())
         gt = np.loadtxt(gt_file_path.as_posix())
 
         # How many ground truth poses are in the file
@@ -636,7 +636,9 @@ class TrajectoryEval:
             plt.show()
 
         # Free up memory and prevent leakage to next plot
-        plt.close()
+        plt.close("all")
+        # print([plt.figure(num).clf() for num in plt.get_fignums()])
+        # print("cleared plt")
 
         # ---------- OUTPUT STATISTICS ---------- #
 
