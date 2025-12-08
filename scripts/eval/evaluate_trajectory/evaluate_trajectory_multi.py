@@ -23,15 +23,16 @@ class TrajectoryEvalMulti:
             "Evaluator", 
             ["TrajectoryEval", "seq_name", "pipeline_type", "plot_dir"]
             )
-
-        # Evaluate mono, stereo, inertial, etc.
-        self.eval_setting = cfg.eval_setting
         
         # Where plots will be saved
         self.plot_dir = Path(cfg.output_subdir.plots)
         self.plot_dir.mkdir(exist_ok=True)
+
+        # Where RTE trajectory errors will be saved
         self.data_dir = Path(cfg.output_subdir.data)
         self.data_dir.mkdir(exist_ok=True)
+        
+        self.rte_df = None # pd.DataFrame initialised later
 
         # ------ INITIALISE TrajectoryEval OBJECTS ------ #
 
@@ -43,10 +44,15 @@ class TrajectoryEvalMulti:
 
                 for pipeline_run in Path(pipeline_type.dir).glob("*.txt"):
 
+                    if self.cfg.eval_setting == "adaptive":
+                        eval_setting = pipeline_type_name
+                    else:
+                        eval_setting = self.cfg.eval_setting
+
                     eval_obj = TrajectoryEval(
                         odometry_path=pipeline_run,
                         gt_path=Path(seq.gt),
-                        sensor_config=cfg.eval_setting
+                        sensor_config=eval_setting
                         )
                     
                     evaluator = Evaluator(
@@ -67,13 +73,18 @@ class TrajectoryEvalMulti:
 
         if self.cfg.rte.do_analysis:
             self.relative_error()
+        
+        if self.cfg.ate.do_analysis:
+            self.align()
+            if self.cfg.ate.draw_trajec.show:
+                self.draw_trajectory()
+            self.absolute_error()
 
 
     def relative_error(self):
         """
         Call .relative_error() method on TrajectoryEval objects
         """
-        rte_df = None  # pd.DataFrame initialised later
 
         for evaluator in self.evaluators:
             
@@ -92,16 +103,16 @@ class TrajectoryEvalMulti:
 
             # If the boxplot should be saved
             if self.cfg.rte.save.stats:
-                path_stat_plot = ("statistics_plot_" 
-                                    + evaluator.TrajectoryEval.odometry_path.stem 
-                                    + ".png")
+                path_stat_plot = ("rte_statistics_plot_" 
+                                  + evaluator.TrajectoryEval.odometry_path.stem 
+                                  + ".png")
                 path_stat_plot = evaluator.plot_dir.joinpath(path_stat_plot)
             else:
                 path_stat_plot = None
 
             # If the subtrajectory plot should be saved
             if self.cfg.rte.save.subtrajec:
-                path_subtraj_plot = ("subtrajectory_plot_" 
+                path_subtraj_plot = ("rte_subtrajectory_plot_" 
                                         + evaluator.TrajectoryEval.odometry_path.stem 
                                         + ".png")
                 path_subtraj_plot = evaluator.plot_dir.joinpath(path_subtraj_plot)
@@ -110,8 +121,11 @@ class TrajectoryEvalMulti:
             
             # Print information on the specific trajectory being displayed
             if self.cfg.rte.show:
-                print(f"Showing {evaluator.seq_name}, {evaluator.pipeline_type}, " 
-                      + f"{evaluator.TrajectoryEval.odometry_path.stem}.txt")
+                print(f"Sequence: \033[1m\033[96m{evaluator.seq_name}\033[0m, "
+                      + f"pipeline type: \033[1m\033[96m{evaluator.pipeline_type}\033[0m, "
+                      + f"eval_setting: \033[1m\033[96m{evaluator.TrajectoryEval.sensor_config}"
+                      + "\033[0m, trajectory_file: \033[1m\033[96m" 
+                      + f"{evaluator.TrajectoryEval.odometry_path.stem}.txt\033[0m")
             
             # Call the .relative_error() method of the TrajectoryEval object
 
@@ -140,7 +154,7 @@ class TrajectoryEvalMulti:
                 rot_err = np.concatenate([rot_err, rel_err[idx].rot])
                 return rot_err
 
-            if rte_df is None or not (rte_df["gt_name"]==evaluator.seq_name).any():
+            if self.rte_df is None or not (self.rte_df["gt_name"]==evaluator.seq_name).any():
                 
                 new_rows = []
 
@@ -151,27 +165,53 @@ class TrajectoryEvalMulti:
                     new_rows.append(
                         {"gt_name": evaluator.seq_name,
                          "pipeline_type": evaluator.pipeline_type,
-                         "eval_setting": self.eval_setting,
+                         "eval_setting": evaluator.TrajectoryEval.sensor_config,
                          "subtraj_len": self.cfg.rte.trajec_lengths[i],
                          "pos_err": tup.pos,
                          "rot_err": tup.rot})
                     
                 # Append the new rows to the dataframe
-                if rte_df is not None:
-                    rte_df = pd.concat([rte_df, pd.DataFrame(new_rows)], ignore_index=True)
+                if self.rte_df is not None:
+                    self.rte_df = pd.concat([self.rte_df, pd.DataFrame(new_rows)], 
+                                            ignore_index=True)
                 else:
-                    rte_df = pd.DataFrame(new_rows)
+                    self.rte_df = pd.DataFrame(new_rows)
                 
             else:
 
                 # Rows representing this sequence exist already
 
-                rte_df.loc[rte_df["gt_name"]==evaluator.seq_name, "pos_err"] \
-                    = rte_df.loc[rte_df["gt_name"]==evaluator.seq_name].apply(
+                self.rte_df.loc[self.rte_df["gt_name"]==evaluator.seq_name, "pos_err"] \
+                    = self.rte_df.loc[self.rte_df["gt_name"]==evaluator.seq_name].apply(
                         fill_in_pos_err, args=(rel_err,),axis=1)
                 
-                rte_df.loc[rte_df["gt_name"]==evaluator.seq_name, "rot_err"] \
-                    = rte_df.loc[rte_df["gt_name"]==evaluator.seq_name].apply(
+                self.rte_df.loc[self.rte_df["gt_name"]==evaluator.seq_name, "rot_err"] \
+                    = self.rte_df.loc[self.rte_df["gt_name"]==evaluator.seq_name].apply(
                         fill_in_rot_err, args=(rel_err,), axis=1)
 
-            rte_df.to_pickle(self.data_dir.joinpath("rte.pkl"))
+        self.rte_df.to_pickle(self.data_dir.joinpath("rte.pkl"))
+
+    def align(self):
+
+        for evaluator in self.evaluators:
+            evaluator.TrajectoryEval.align(
+                align_all_frames=self.cfg.ate.align_all_frames
+            )
+    
+    def draw_trajectory(self):
+
+        for evaluator in self.evaluators:
+            print(f"Sequence: \033[1m\033[96m{evaluator.seq_name}\033[0m, "
+                  + f"pipeline type: \033[1m\033[96m{evaluator.pipeline_type}\033[0m, "
+                  + f"eval_setting: \033[1m\033[96m{evaluator.TrajectoryEval.sensor_config}"
+                  + "\033[0m, trajectory_file: \033[1m\033[96m" 
+                  + f"{evaluator.TrajectoryEval.odometry_path.stem}.txt\033[0m")
+            evaluator.TrajectoryEval.draw_trajectory(
+                gt=self.cfg.ate.draw_trajec.gt,
+                add_orientation_gt=self.cfg.ate.draw_trajec.add_orientation_gt,
+                add_orientation_est=self.cfg.ate.draw_trajec.add_orientation_est
+            )
+
+    def absolute_error(self):
+        pass
+
