@@ -40,7 +40,7 @@ ate:
   do_analysis: true                     # if ate is computed
   align_all_frames: true
   draw_trajec:
-    show: false
+    show: true
     gt: true
     # show orientation at this frame. None or int
     add_orientation_gt: 0
@@ -65,5 +65,5 @@ evals:
     run:
       stereo: 
         dir: ${paths.tank.run.s.HalfTank_Medium}
-        failures: []
-        # - live_trajec
+        failures:
+         - live_trajec

@@ -202,6 +202,14 @@ class TrajectoryEvalMulti:
     def draw_trajectory(self):
 
         for evaluator in self.evaluators:
+
+            # Check if the current estimated trajectory is considered a
+            # failure. If so, the relative error is not evaluated for it.
+            current_trajec = evaluator.TrajectoryEval.odometry_path.stem
+            failures = self.cfg.evals[evaluator.seq_name].run.stereo.failures
+            if current_trajec in failures:
+                continue
+
             print(f"Sequence: \033[1m\033[96m{evaluator.seq_name}\033[0m, "
                   + f"pipeline type: \033[1m\033[96m{evaluator.pipeline_type}\033[0m, "
                   + f"eval_setting: \033[1m\033[96m{evaluator.TrajectoryEval.sensor_config}"
@@ -254,7 +262,7 @@ class TrajectoryEvalMulti:
                     self.ate_df = pd.DataFrame([new_row])
 
             else:
-                # Rows representing this sequence exist already
+                # Rows representing this sequence exist already 
 
                 self.ate_df.loc[self.ate_df["gt_name"]==evaluator.seq_name, "pos_err"] \
                     = self.ate_df.loc[self.ate_df["gt_name"]==evaluator.seq_name].apply(
