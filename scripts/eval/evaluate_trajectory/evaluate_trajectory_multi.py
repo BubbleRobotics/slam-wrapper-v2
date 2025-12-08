@@ -76,6 +76,13 @@ class TrajectoryEvalMulti:
         rte_df = None  # pd.DataFrame initialised later
 
         for evaluator in self.evaluators:
+            
+            # Check if the current estimated trajectory is considered a
+            # failure. If so, the relative error is not evaluated for it.
+            current_trajec = evaluator.TrajectoryEval.odometry_path.stem
+            failures = self.cfg.evals[evaluator.seq_name].run.stereo.failures
+            if current_trajec in failures:
+                continue
 
             ### ---------- PLOTTING ---------- ###
             

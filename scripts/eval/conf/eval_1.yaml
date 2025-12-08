@@ -29,10 +29,10 @@ eval_setting: "stereo"
 rte:
   do_analysis: true                     # if rte is computed
   trajec_lengths: [0.1, 0.4, 1.6, 6.4]
-  show: false
+  show: true
   save:
     subtrajec: false
-    stats: true
+    stats: false
 
 # Absolute Trajectory Error
 ate:
@@ -46,15 +46,17 @@ evals:
     run:
       stereo: 
         dir: ${paths.tank.run.s.Structure_Easy}
-        failures:
+        failures: []
           # Within the trajecotry above, what estimated
           # trajectories have to be considered failures
           # (lost tracking without recovering)
-          - live_trajec_01.txt
+          # Write the file stem (ie. without suffix)
+          # - live_trajec_01
   
   HalfTank_Medium: 
     gt: ${paths.tank.gt.HalfTank_Medium}
     run:
       stereo: 
         dir: ${paths.tank.run.s.HalfTank_Medium}
-        failures: []
+        failures:
+        - live_trajec
