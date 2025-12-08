@@ -9,6 +9,8 @@ from .evaluate_trajectory_single import TrajectoryEval
 from omegaconf import DictConfig
 from pathlib import Path
 from collections import namedtuple
+import pandas as pd
+import numpy as np
 
 class TrajectoryEvalMulti:
     
@@ -28,6 +30,8 @@ class TrajectoryEvalMulti:
         # Where plots will be saved
         self.plot_dir = Path(cfg.output_subdir.plots)
         self.plot_dir.mkdir(exist_ok=True)
+        self.data_dir = Path(cfg.output_subdir.data)
+        self.data_dir.mkdir(exist_ok=True)
 
         # ------ INITIALISE TrajectoryEval OBJECTS ------ #
 
@@ -54,7 +58,7 @@ class TrajectoryEvalMulti:
                     
                     self.evaluators.append(evaluator)
     
-    
+
     def do_analysis(self):
         """
         Master method calling the relative_error() method and 
@@ -69,8 +73,11 @@ class TrajectoryEvalMulti:
         """
         Call .relative_error() method on TrajectoryEval objects
         """
+        rte_df = None  # pd.DataFrame initialised later
 
         for evaluator in self.evaluators:
+
+            ### ---------- PLOTTING ---------- ###
             
             # Create plot subtrajectories if plots should be saved
             if self.cfg.rte.save.stats or self.cfg.rte.save.subtrajec:
@@ -97,15 +104,67 @@ class TrajectoryEvalMulti:
             # Print information on the specific trajectory being displayed
             if self.cfg.rte.show:
                 print(f"Showing {evaluator.seq_name}, {evaluator.pipeline_type}, " 
-                    + f"{evaluator.TrajectoryEval.odometry_path.stem}.txt")
+                      + f"{evaluator.TrajectoryEval.odometry_path.stem}.txt")
             
             # Call the .relative_error() method of the TrajectoryEval object
-            evaluator.TrajectoryEval.relative_error(
-                trajec_lenghts=self.cfg.rte.trajec_lengths,
-                show=self.cfg.rte.show,
-                save=[path_stat_plot, path_subtraj_plot]
-                )
 
+            rel_err = evaluator.TrajectoryEval.relative_error(
+                    trajec_lenghts=self.cfg.rte.trajec_lengths,
+                    show=self.cfg.rte.show,
+                    save=[path_stat_plot, path_subtraj_plot]
+                    )
+            
+            ### ---------- SAVING RTE DATA ---------- ###
 
+            def fill_in_pos_err(row, rel_err):
+                """Function applied to df to fill in error data from
+                different pipeline runs"""
+                idx = self.cfg.rte.trajec_lengths.index(row["subtraj_len"])
+                pos_err = row["pos_err"]
+                pos_err = np.concatenate([pos_err, rel_err[idx].pos])
+                return pos_err
+            
+            def fill_in_rot_err(row, rel_err):
+                """Function applied to df to fill in error data from
+                different pipeline runs"""
+                
+                idx = self.cfg.rte.trajec_lengths.index(row["subtraj_len"])
+                rot_err = row["rot_err"]
+                rot_err = np.concatenate([rot_err, rel_err[idx].rot])
+                return rot_err
 
-        
+            if rte_df is None or not (rte_df["gt_name"]==evaluator.seq_name).any():
+                
+                new_rows = []
+
+                for i, tup in enumerate(rel_err):
+
+                    # Form new rows: for position and rotation error,
+                    # one row for each trajecotry length
+                    new_rows.append(
+                        {"gt_name": evaluator.seq_name,
+                         "pipeline_type": evaluator.pipeline_type,
+                         "eval_setting": self.eval_setting,
+                         "subtraj_len": self.cfg.rte.trajec_lengths[i],
+                         "pos_err": tup.pos,
+                         "rot_err": tup.rot})
+                    
+                # Append the new rows to the dataframe
+                if rte_df is not None:
+                    rte_df = pd.concat([rte_df, pd.DataFrame(new_rows)], ignore_index=True)
+                else:
+                    rte_df = pd.DataFrame(new_rows)
+                
+            else:
+
+                # Rows representing this sequence exist already
+
+                rte_df.loc[rte_df["gt_name"]==evaluator.seq_name, "pos_err"] \
+                    = rte_df.loc[rte_df["gt_name"]==evaluator.seq_name].apply(
+                        fill_in_pos_err, args=(rel_err,),axis=1)
+                
+                rte_df.loc[rte_df["gt_name"]==evaluator.seq_name, "rot_err"] \
+                    = rte_df.loc[rte_df["gt_name"]==evaluator.seq_name].apply(
+                        fill_in_rot_err, args=(rel_err,), axis=1)
+
+            rte_df.to_pickle(self.data_dir.joinpath("rte.pkl"))

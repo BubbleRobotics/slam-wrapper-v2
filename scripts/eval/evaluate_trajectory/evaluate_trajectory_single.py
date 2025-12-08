@@ -586,16 +586,17 @@ class TrajectoryEval:
             - If either are None: the corresponding plot is not saved
 
         ### Returns
-        Named tuple of statistics concerning the relative error. One named tuple
-        for each trajec length
-        1. min
-        2. q2
-        3. median
-        4. q3
-        5. max
-        6. mean
-        7. std
-        8. n_subtraj (nuumber of subtrajectories)
+        Namedtuple of type ReSubTrajLen containing one namedtuple of type ReErrType
+        for each subtrajectory length in trajec_lengths. 
+        Example:
+
+        ReSubTrajLen
+        |--l0p4: ReErrType
+        |           |------rot: np.array
+        |           |------pos: np.array
+        |--l1p6: ReErrType
+                    |------rot: np.array
+                    |------pos: np.array
         """
 
         n_lengths = len(trajec_lenghts)
@@ -638,7 +639,7 @@ class TrajectoryEval:
         # Free up memory and prevent leakage to next plot
         plt.close("all")
 
-        # ---------- OUTPUT STATISTICS ---------- #
+        # ---------- OUTPUT ---------- #
 
         # Named tuple containing one named tuple for every 
         # sub-trajectory length (elements of trajec_length)
@@ -650,44 +651,15 @@ class TrajectoryEval:
         # For looping through the subtrajectory lengths: placeholder list
         placeholder = []
 
-        # Named tuple containing two namedtuples: one for position
-        # and one for rotation RE statistics. Both are of type ReStats.
-        # Also contains the number of subtrajectories
-        ReErrType = namedtuple("ReErrType", ["pos", "rot", "n_subtraj"])
-
-        # Named tuples containing the statistics
-        fields = ["min", "q2", "median", "q3", "max", "mean", "std"]
-        ReStats = namedtuple("RelErrStats", fields)
+        # Named tuple containing two fileds: one for position
+        # and one for rotation RE statistics.
+        ReErrType = namedtuple("ReErrType", ["pos", "rot"])
 
         for i in range(n_lengths):
 
-            # Position statistics
-            pos_stats = ReStats(
-                min=pos_err.min(),
-                q2=np.percentile(pos_errs[i], 25),
-                median=np.percentile(pos_errs[i], 50),
-                q3=np.percentile(pos_errs[i], 75),
-                max=pos_err.max(),
-                mean=pos_err.mean(),
-                std=pos_err.std()
-            )
-            
-            # Rotation statistics
-            rot_stats = ReStats(
-                min=rot_err.min(),
-                q2=np.percentile(rot_errs[i], 25),
-                median=np.percentile(rot_errs[i], 50),
-                q3=np.percentile(rot_errs[i], 75),
-                max=rot_err.max(),
-                mean=rot_err.mean(),
-                std=rot_err.std()
-            )
-
-            # Pack into one named tuple, add to placeholder:
             placeholder.append(ReErrType(
-                pos=pos_stats,
-                rot=rot_stats,
-                n_subtraj=len(pos_errs[i])
+                pos=pos_errs[i],
+                rot=rot_errs[i],
             ))
         
         # Convert placeholder list to ReSubTrajLen namedtuple
@@ -984,7 +956,8 @@ if __name__ == "__main__":
                         gt_path=gt_Structure_Easy,    
                         sensor_config="stereo", gravity_vector=[-0, -1, 0])
     
-    te.relative_error(trajec_lenghts=[0.1, 0.4, 1.6, 6.4],
+    re = te.relative_error(trajec_lenghts=[0.1, 0.4, 1.6, 6.4],
                       show=True
                       # save=[Path().cwd().joinpath("subtraj.png"), Path().cwd().joinpath("stats.png")]
                       )
+    print()

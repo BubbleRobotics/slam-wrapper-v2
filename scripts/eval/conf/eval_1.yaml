@@ -17,6 +17,7 @@ hydra:
 # Implemented in EvaluateTrajecMulti
 output_subdir:
   plots: ${hydra:runtime.output_dir}/plots
+  data: ${hydra:runtime.output_dir}/error_data
 
 ### ---------- EVALUATION SETTINGS ---------- ###
 
