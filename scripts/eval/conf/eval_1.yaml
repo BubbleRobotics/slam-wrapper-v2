@@ -40,7 +40,7 @@ ate:
   do_analysis: true                     # if ate is computed
   align_all_frames: true
   draw_trajec:
-    show: true
+    show: false
     gt: true
     # show orientation at this frame. None or int
     add_orientation_gt: 0

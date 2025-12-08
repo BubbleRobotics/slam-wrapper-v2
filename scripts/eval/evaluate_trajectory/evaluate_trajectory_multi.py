@@ -33,6 +33,7 @@ class TrajectoryEvalMulti:
         self.data_dir.mkdir(exist_ok=True)
         
         self.rte_df = None # pd.DataFrame initialised later
+        self.ate_df = None
 
         # ------ INITIALISE TrajectoryEval OBJECTS ------ #
 
@@ -160,7 +161,7 @@ class TrajectoryEvalMulti:
 
                 for i, tup in enumerate(rel_err):
 
-                    # Form new rows: for position and rotation error,
+                    # Form new rows: position and rotation error,
                     # one row for each trajecotry length
                     new_rows.append(
                         {"gt_name": evaluator.seq_name,
@@ -213,5 +214,54 @@ class TrajectoryEvalMulti:
             )
 
     def absolute_error(self):
-        pass
 
+        if self.cfg.ate.align_all_frames:
+            alignment_type = "all frames"
+        else:
+            alignment_type = "first frame"
+        
+        for evaluator in self.evaluators:
+
+            abs_err = evaluator.TrajectoryEval.absolute_trajectory_error()
+            
+            def fill_in_pos_err(row, abs_err):
+                """Function applied to df to fill in error data from
+                different pipeline runs"""
+                pos_err = row["pos_err"]
+                pos_err = np.concatenate([pos_err, abs_err.pos], axis=1)
+                return pos_err
+            
+            def fill_in_rot_err(row, abs_err):
+                """Function applied to df to fill in error data from
+                different pipeline runs"""
+                rot_err = row["rot_err"]
+                rot_err = np.concatenate([rot_err, abs_err.rot])
+                return rot_err
+
+            if self.ate_df is None or not (self.ate_df["gt_name"]==evaluator.seq_name).any():
+                
+                new_row={"gt_name": evaluator.seq_name,
+                         "pipeline_type": evaluator.pipeline_type,
+                         "eval_setting": evaluator.TrajectoryEval.sensor_config,
+                         "alignment_type": alignment_type,
+                         "pos_err": abs_err.pos,
+                         "rot_err": abs_err.rot}
+                
+                # Append the new rows to the dataframe
+                if self.ate_df is not None:
+                    self.ate_df.loc[len(self.ate_df)] = new_row
+                else:
+                    self.ate_df = pd.DataFrame([new_row])
+
+            else:
+                # Rows representing this sequence exist already
+
+                self.ate_df.loc[self.ate_df["gt_name"]==evaluator.seq_name, "pos_err"] \
+                    = self.ate_df.loc[self.ate_df["gt_name"]==evaluator.seq_name].apply(
+                        fill_in_pos_err, args=(abs_err,),axis=1)
+                
+                self.ate_df.loc[self.ate_df["gt_name"]==evaluator.seq_name, "rot_err"] \
+                    = self.ate_df.loc[self.ate_df["gt_name"]==evaluator.seq_name].apply(
+                        fill_in_rot_err, args=(abs_err,), axis=1)
+        
+        self.ate_df.to_pickle(self.data_dir.joinpath("ate.pkl"))

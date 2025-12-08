@@ -421,7 +421,7 @@ class TrajectoryEval:
 
         return R, t, 1.0  # No scale correction for inertial
     
-    def absolue_trajectory_error(self):
+    def absolute_trajectory_error(self):
         """
         Compute the ATE. The trajectories should already be aligned by use
         of self.similarity_transform_3d() at this point
@@ -434,6 +434,8 @@ class TrajectoryEval:
         # Position error
         RMSE_pos = np.sqrt(np.sum((self.gt_T_wc_array[:, 3] 
                                - self.T_wc_array[:, 3])**2) / self.n_poses)
+        delta_pos = self.gt_T_wc_array[:, 3] - self.T_wc_array[:, 3]
+        delta_pos = delta_pos.reshape(3, -1, order="F")  # (3, n) array of difference vectors
         
         # Rotation error
         Ri_hat = self.T_wc_array[:, :3].reshape(-1, 3, 3)
@@ -443,7 +445,9 @@ class TrajectoryEval:
 
         RMSE_rot = np.sqrt(np.sum(delta_angle**2) / self.n_poses) * 180 / np.pi
         
-        return RMSE_pos, RMSE_rot
+        AteErrType = namedtuple("AteErrType", ["pos", "rot"])
+
+        return AteErrType(delta_pos, delta_angle)
     
     def _get_relative_error(self, trajectory_length: float):
         """
@@ -955,9 +959,10 @@ if __name__ == "__main__":
     te = TrajectoryEval(odometry_path=Structure_Easy,
                         gt_path=gt_Structure_Easy,    
                         sensor_config="stereo", gravity_vector=[-0, -1, 0])
-    
-    re = te.relative_error(trajec_lenghts=[0.1, 0.4, 1.6, 6.4],
-                      show=True
-                      # save=[Path().cwd().joinpath("subtraj.png"), Path().cwd().joinpath("stats.png")]
-                      )
+    te.align()
+    ate = te.absolute_trajectory_error()
+    # re = te.relative_error(trajec_lenghts=[0.1, 0.4, 1.6, 6.4],
+    #                   show=True
+    #                   # save=[Path().cwd().joinpath("subtraj.png"), Path().cwd().joinpath("stats.png")]
+    #                   )
     print()
