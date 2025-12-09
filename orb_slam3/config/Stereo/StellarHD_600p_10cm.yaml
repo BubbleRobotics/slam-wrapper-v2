@@ -5,48 +5,38 @@
 #--------------------------------------------------------------------------------------------
 File.version: "1.0"
 
-Camera.type: "PinHole"
+Camera.type: "Rectified"
 
-# Camera calibration and distortion parameters (OpenCV)
+# Left Camera calibration and distortion parameters (OpenCV)
+Camera1.fx: 451.283
+Camera1.fy: 447.81992
+Camera1.cx: 399.71122
+Camera1.cy: 334.33663
 
-Camera1.fx: 389.013427734375
-Camera1.fy: 389.013427734375
-Camera1.cx: 323.04339599609375
-Camera1.cy: 244.42019653320312
-
+# distortion parameters
 Camera1.k1: 0.0
 Camera1.k2: 0.0
-Camera1.p1: 0.0
-Camera1.p2: 0.0
+Camera1.k3: 0.0
+Camera1.k4: 0.0
 
-Camera.width: 640
-Camera.height: 360
+Camera2.fx: 450.21367
+Camera2.fy: 447.90815
+Camera2.cx: 395.50664
+Camera2.cy: 325.30563
 
-# Camera frames per second
-Camera.fps: 5
+# Camera resolution
+Camera.width: 800
+Camera.height: 600
+
+# Camera frames per second 
+Camera.fps: 30
 
 # Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
 Camera.RGB: 1
 
-# My camera parameters
-# WorldRPY.roll: 1.57079632679
-# WorldRPY.pitch: 0.0
-# WorldRPY.yaw: 1.57079632679
-
-# WorldRPY.roll: 0.0
-# WorldRPY.pitch: 1.57
-# WorldRPY.yaw: 0.0
-
 # Close/Far threshold. Baseline times.
-Stereo.ThDepth: 1.0
-Stereo.b: 0.07732
-
-# Depth threshold
-ThDepth: 2.0
-DepthMapFactor: 1000.0
-
-# Depth map values factor
-RGBD.DepthMapFactor: 1000.0 # 1.0 for ROS_bag
+Stereo.ThDepth: 15.0
+Stereo.b: 0.1
 
 # Do not insert KFs when recently lost
 IMU.InsertKFsWhenLost: 0
@@ -67,26 +57,24 @@ IMU.GyroWalk: 1.0e-02 # rad/s^1.5
 IMU.AccWalk: 1.0e-02 # m/s^2.5
 IMU.Frequency: 200.0
 
-
 #--------------------------------------------------------------------------------------------
 # ORB Parameters
 #--------------------------------------------------------------------------------------------
-
 # ORB Extractor: Number of features per image
-ORBextractor.nFeatures: 450
+ORBextractor.nFeatures: 800
 
-# ORB Extractor: Scale factor between levels in the scale pyramid
+# ORB Extractor: Scale factor between levels in the scale pyramid 	
 ORBextractor.scaleFactor: 1.2
 
-# ORB Extractor: Number of levels in the scale pyramid
-ORBextractor.nLevels: 4
+# ORB Extractor: Number of levels in the scale pyramid	
+ORBextractor.nLevels: 8
 
 # ORB Extractor: Fast threshold
 # Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.
 # Firstly we impose iniThFAST. If no corners are detected we impose a lower value minThFAST
-# You can lower these values if your images have low contrast
-ORBextractor.iniThFAST: 15
-ORBextractor.minThFAST: 5
+# You can lower these values if your images have low contrast			
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
 
 #--------------------------------------------------------------------------------------------
 # Viewer Parameters
@@ -99,5 +87,5 @@ Viewer.CameraSize: 0.08
 Viewer.CameraLineWidth: 3.0
 Viewer.ViewpointX: 0.0
 Viewer.ViewpointY: -0.7
-Viewer.ViewpointZ: -1.8
+Viewer.ViewpointZ: -3.5
 Viewer.ViewpointF: 500.0

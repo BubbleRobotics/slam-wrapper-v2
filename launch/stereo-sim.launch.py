@@ -1,14 +1,15 @@
 '''
- # @ Create Time: 2025-11-03 10:14:15
- # @ Modified by: Paul Joseph
- # @ Modified time: 2025-11-03 12:22:08
- # @ Description: Launch file for Monocular-Inertial SLAM Wrapper with Realsense D455 Camera
+ # @ Create Time: 2025-11-10 17:00:00
+ # @ Modified by: Diego Hernandez
+ # @ Modified time: 2025-11-10 17:00:00
+ # @ Description: Launch file for Monocular SLAM Wrapper with Realsense D555 Camera
  '''
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
@@ -20,17 +21,20 @@ def generate_launch_description():
     # Create nodes
     mono_inertial_node: Node = Node(
             package='ros2_orb_slam3',
-            executable='mono_inertial_node_cpp',
-            name='mono_inertial_node',
+            executable='stereo_node_cpp',
+            name='stereo_node',
             namespace='ORB_SLAM3',
             output='screen',
             parameters=[
-                {'settings_file': package_dir + '/orb_slam3/config/Monocular-Inertial/RealSense_D455.yaml'},
+                {'settings_file': package_dir + '/orb_slam3/config/Stereo/Gazebo.yaml'},
                 {'voc_file': package_dir + '/orb_slam3/Vocabulary/ORBvoc.txt.bin'},
-                {'img_topic': '/cam_realsense/camera/infra2/image_rect_raw'},
-                {'imu_topic': '/cam_realsense/camera/imu'},
-                {'enable_debug_window': True},
+                {'img0_topic': '/camera_d455/ir_left/image_raw'},
+                {'img1_topic': '/camera_d455/ir_right/image_raw'},
+                {'imu_topic': '/vectornav/Imu_raw'},
+                {'enable_debug_window': False},
                 {'is_inertial': True},
+                {'manual_time_sync': False},
+                {'imu_from_yaml': False},
             ]
     )
 
