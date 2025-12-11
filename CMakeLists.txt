@@ -172,10 +172,19 @@ add_executable(stereo_node_cpp
   src/stereo.cpp
 )
 
+# Add executable (DVL Stereo VSLAM node)
+add_executable(dvl_stereo_node_cpp
+  src/dvl_stereo_node.cpp
+  src/dvl_stereo.cpp
+)
+
 ament_target_dependencies(mono_node_cpp
   PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
 ament_target_dependencies(stereo_node_cpp
+  PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS}
+)
+ament_target_dependencies(dvl_stereo_node_cpp
   PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
 
