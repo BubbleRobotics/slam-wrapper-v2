@@ -20,7 +20,6 @@ class DvlStereoMode : public rclcpp::Node{
     std::string settingsFilePath;
     std::string img0Topic;
     std::string img1Topic;
-    std::string imuTopic;
     std::string dvlTopic;
 
     bool enableDebugWindow;

@@ -20,8 +20,8 @@ def generate_launch_description():
     # Create nodes
     mono_inertial_node: Node = Node(
             package='ros2_orb_slam3',
-            executable='stereo_node_cpp',
-            name='stereo_node',
+            executable='dvl_stereo_node_cpp',
+            name='dvl_stereo_node',
             namespace='ORB_SLAM3',
             output='screen',
             parameters=[
@@ -31,9 +31,7 @@ def generate_launch_description():
                 {'img1_topic': '/cam_realsense/camera/infra2/image_rect_raw'},
                 {'imu_topic': '/cam_realsense/camera/imu'},
                 {'enable_debug_window': False},
-                {'is_inertial': True},
-                {'manual_time_sync': False},
-                {'imu_from_yaml': False},
+                {'publish_tf': True}
             ]
     )
 
