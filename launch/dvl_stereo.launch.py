@@ -30,7 +30,7 @@ def generate_launch_description():
                 {'img0_topic': '/camera/left/image_dehazed/raw'},
                 {'img1_topic': '/camera/right/image_dehazed/raw'},
                 {'imu_topic': '/cam_realsense/camera/imu'},
-                {'enable_debug_window': False},
+                {'enable_debug_window': True},
                 {'publish_tf': True}
             ]
     )

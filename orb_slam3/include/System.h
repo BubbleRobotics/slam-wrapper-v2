@@ -92,6 +92,7 @@ public:
         IMU_MONOCULAR=3,
         IMU_STEREO=4,
         IMU_RGBD=5,
+        DVL_STEREO=6,
     };
 
     // File type

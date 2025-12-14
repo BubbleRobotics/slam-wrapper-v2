@@ -42,7 +42,7 @@ DvlStereoMode::DvlStereoMode()
     RCLCPP_INFO(this->get_logger(), "img1_topic: %s", img1Topic.c_str());
     RCLCPP_INFO(this->get_logger(), "dvl_topic: %s", dvlTopic.c_str());
 
-    // ---- SUBSCRIBERS AND PUBLISHERS ---- //
+    // ---- SUBSCRIBERS ---- //
 
     // Subscribe to stereo images
     img0Sub_ = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::Image>>(this, img0Topic);
@@ -60,17 +60,204 @@ DvlStereoMode::DvlStereoMode()
         )
     );
 
+    // ---- PUBLISHERS ---- //
+
+    posePub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
+        "~/camera_pose", 10);
+
+    odomPub_ = this->create_publisher<nav_msgs::msg::Odometry>(
+        "~/odometry", 10);
+
+    pathPub_ = this->create_publisher<nav_msgs::msg::Path>(
+        "~/trajectory", 10);
+
+    trackingImagePub_ = this->create_publisher<sensor_msgs::msg::Image>(
+        "~/tracking_image", 10);
+    
+    // TF broadcaster
+    if (publishTf_) {
+        tfBroadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
+    }
+
+    InitializeSLAM();
 
 };
 
 // --------- DESTRUCTOR --------- //
 
-DvlStereoMode::~DvlStereoMode(){}
+DvlStereoMode::~DvlStereoMode(){
+    pAgent->Shutdown();
+}
+
+// --------- INITIALIZE SLAM --------- //
+
+void DvlStereoMode::InitializeSLAM(){
+
+    // Watchdog, if the paths to vocabular and settings files are still not set (DOUBLECHECK)
+    if (vocFilePath == "file_not_set" || settingsFilePath == "file_not_set")
+    {
+        RCLCPP_ERROR(get_logger(), "Please provide valid voc_file and settings_file paths");       
+        rclcpp::shutdown();
+    } 
+
+    if (enableDebugWindow)
+    {
+        enablePangolinWindow = true; // Shows Pangolin window output
+        enableOpenCVWindow = true; // Shows OpenCV window output  
+    }
+
+    RCLCPP_INFO(this->get_logger(), "Setting to DVL-stereo mode");
+    sensorType = ORB_SLAM3::System::STEREO; //ORB_SLAM3::System::DVL_STEREO;
+
+    // Initializing System object:
+    pAgent = new ORB_SLAM3::System(vocFilePath, settingsFilePath, sensorType, enablePangolinWindow);
+};
 
 // --------- STEREO CALLBACK --------- //
 
-void DvlStereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &img0,
-                                   const sensor_msgs::msg::Image::ConstSharedPtr &img1)
-{
-    RCLCPP_INFO(this->get_logger(), "Called Stereo callback.");
+void DvlStereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &left_img,
+                                   const sensor_msgs::msg::Image::ConstSharedPtr &right_img){
+
+    // take left image as frame ID 
+    cameraFrameId_ = left_img->header.frame_id;
+    cv_bridge::CvImageConstPtr left_cv_ptr, right_cv_ptr; 
+    try
+    {
+        left_cv_ptr = cv_bridge::toCvShare(left_img); 
+        right_cv_ptr = cv_bridge::toCvShare(right_img); 
+    }
+    catch (cv_bridge::Exception& e)
+    {
+        RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
+        return;
+    }
+    double t = left_img->header.stamp.sec + left_img->header.stamp.nanosec * 1e-9;
+    
+    // Pose with respect to the camera coordinate frame not the world coordinate frame
+    Sophus::SE3f Tcw = pAgent->TrackStereo(left_cv_ptr->image, right_cv_ptr->image, t);
+
+    // Check if pipeline predicts a zero pose
+    if(!Tcw.translation().isZero(1e-6))
+    {
+        RCLCPP_INFO(this->get_logger(), "Successful tracking");
+    }
+    else
+    {
+        RCLCPP_ERROR(this->get_logger(), "Error tracking");
+    }
 };
+
+// ---------- PUBLISHING ON TOPICS ---------- //
+
+void DvlStereoMode::PublishOrbSlamOutput(const Sophus::SE3f& Tcw, 
+                                         const sensor_msgs::msg::Image::ConstSharedPtr img_msg,
+                                         const cv_bridge::CvImageConstPtr& cv_ptr)
+{
+    // Convert from camera-to-world to world-to-camera
+    Sophus::SE3f Twc = Tcw.inverse();
+    
+    // Publish pose
+    PublishPose(Twc, img_msg->header);
+    
+    // Publish odometry
+    PublishOdometry(Twc, img_msg);
+
+    // Publish path
+    PublishPath(Twc, img_msg->header);
+
+    // Publish TF
+    if (publishTf_)
+    {
+        PublishTF(Twc, img_msg);
+    }
+};
+
+void DvlStereoMode::PublishPose(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
+{
+    geometry_msgs::msg::PoseStamped pose_msg;
+    pose_msg.header.stamp = header.stamp;
+    pose_msg.header.frame_id = worldFrameId_;
+    
+    Eigen::Vector3f t = Twc.translation();
+    Eigen::Quaternionf q = Twc.unit_quaternion();
+    
+    pose_msg.pose.position.x = t.x();
+    pose_msg.pose.position.y = t.y();
+    pose_msg.pose.position.z = t.z();
+    
+    pose_msg.pose.orientation.x = q.x();
+    pose_msg.pose.orientation.y = q.y();
+    pose_msg.pose.orientation.z = q.z();
+    pose_msg.pose.orientation.w = q.w();
+
+    posePub_->publish(pose_msg);
+};
+
+void DvlStereoMode::PublishOdometry(const Sophus::SE3f& Twc, 
+                                    const sensor_msgs::msg::Image::ConstSharedPtr img_msg)
+{
+    nav_msgs::msg::Odometry odom_msg;
+    odom_msg.header.stamp = img_msg->header.stamp;
+    odom_msg.header.frame_id = worldFrameId_;
+    odom_msg.child_frame_id = cameraFrameOrbId;
+    
+    Eigen::Vector3f t = Twc.translation();
+    Eigen::Quaternionf q = Twc.unit_quaternion();
+    
+    odom_msg.pose.pose.position.x = t.x();
+    odom_msg.pose.pose.position.y = t.y();
+    odom_msg.pose.pose.position.z = t.z();
+    
+    odom_msg.pose.pose.orientation.x = q.x();
+    odom_msg.pose.pose.orientation.y = q.y();
+    odom_msg.pose.pose.orientation.z = q.z();
+    odom_msg.pose.pose.orientation.w = q.w();
+    
+    odomPub_->publish(odom_msg);
+};
+
+void DvlStereoMode::PublishPath(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
+{
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header.stamp = header.stamp;
+    pose.header.frame_id = worldFrameId_;
+    
+    Eigen::Vector3f t = Twc.translation();
+    Eigen::Quaternionf q = Twc.unit_quaternion();
+    
+    pose.pose.position.x = t.x();
+    pose.pose.position.y = t.y();
+    pose.pose.position.z = t.z();
+    
+    pose.pose.orientation.x = q.x();
+    pose.pose.orientation.y = q.y();
+    pose.pose.orientation.z = q.z();
+    pose.pose.orientation.w = q.w();
+    
+    path_.poses.push_back(pose);
+    path_.header = pose.header;
+
+    pathPub_->publish(path_);
+}
+
+void DvlStereoMode::PublishTF(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::ConstSharedPtr img_msg)
+{
+    geometry_msgs::msg::TransformStamped transform;
+    transform.header.stamp = img_msg->header.stamp;
+    transform.header.frame_id = worldFrameId_;
+    transform.child_frame_id = cameraFrameOrbId;
+    
+    Eigen::Vector3f t = Twc.translation();
+    Eigen::Quaternionf q = Twc.unit_quaternion();
+    
+    transform.transform.translation.x = t.x();
+    transform.transform.translation.y = t.y();
+    transform.transform.translation.z = t.z();
+    
+    transform.transform.rotation.x = q.x();
+    transform.transform.rotation.y = q.y();
+    transform.transform.rotation.z = q.z();
+    transform.transform.rotation.w = q.w();
+    
+    tfBroadcaster_->sendTransform(transform);
+}
