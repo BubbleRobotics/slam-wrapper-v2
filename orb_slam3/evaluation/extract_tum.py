@@ -55,9 +55,6 @@ def write_tum(msg, f):
     ts = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
     p = msg.pose.pose.position
     q = msg.pose.pose.orientation
-    print(ts)
-    print(p)
-    print(q)
     f.write(f"{ts:.9f} {p.x} {p.y} {p.z} {q.x} {q.y} {q.z} {q.w}\n")
 
 

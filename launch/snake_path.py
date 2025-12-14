@@ -392,9 +392,9 @@ bottom_right = {"lat": 41.3585, "lon": 2.185416667,   "depth": 5.15,  "yaw": 105
 
 
 
-top_left = {"x":10.92, "y": 13.55, "depth": 3.65, "yaw": 105.6923}
+top_left = {"x":10.92, "y": 13.55, "depth": 3.15, "yaw": 105.6923}
 
-top_right = {"x": 10.7, "y": 12.63,    "depth": 3.65, "yaw": 105.6923}
+top_right = {"x": 10.7, "y": 12.63,    "depth": 3.15, "yaw": 105.6923}
 
 bottom_left = {"x": 10.92, "y": 13.56, "depth": 4.90,  "yaw": 105.6923}
 
@@ -414,7 +414,9 @@ yaw = top_left["yaw"]
 
 checked_apriltags = False
 
-
+# NEW: perform an initial up->down pass if starting at bottom-left
+start_at_bottom_left = True   # set to False to disable the initial up/down
+_initial_updown_done = False
 
 
 
@@ -464,6 +466,31 @@ while not done:
 
             time.sleep(0.5)
 
+            # AFTER apriltag check, optionally do the initial bottom->top->bottom pass
+        if start_at_bottom_left and not _initial_updown_done:
+            print("Performing initial pass: bottom -> top -> bottom")
+            # ensure we are at bottom_left first
+            goto_position(bottom_left["x"], bottom_left["y"], bottom_left["depth"], yaw_deg=yaw)
+            reached = False
+            while not reached:
+                reached, _ = reached_goal(bottom_left["x"], bottom_left["y"], bottom_left["depth"], yaw, threshold=0.05)
+                time.sleep(0.5)
+
+            # go up to top_left
+            goto_position(top_left["x"], top_left["y"], top_left["depth"], yaw_deg=yaw)
+            reached = False
+            while not reached:
+                reached, _ = reached_goal(top_left["x"], top_left["y"], top_left["depth"], yaw, threshold=0.05)
+                time.sleep(0.5)
+
+            # go back down to bottom_left
+            goto_position(bottom_left["x"], bottom_left["y"], bottom_left["depth"], yaw_deg=yaw)
+            reached = False
+            while not reached:
+                reached, _ = reached_goal(bottom_left["x"], bottom_left["y"], bottom_left["depth"], yaw, threshold=0.05)
+                time.sleep(0.5)
+
+            _initial_updown_done = True
 
 
     if going_right:

@@ -750,9 +750,9 @@ if __name__ == "__main__":
     Structure_Easy = "/home/ubuntu/ws_blue/data/pipeline_runs/tank/Structure_Easy/stereo_only/live_trajec/live_trajec.txt"
     gt_Structure_Easy = "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/Structure_Easy/gt_data.txt"
 
-    te = TrajectoryEval(odometry_path="/home/ubuntu/ws_blue/src/slam-wrapper-v2/orb_slam3/evaluation/odometry_mono.txt",
-                        gt_path="/home/ubuntu/ws_blue/src/slam-wrapper-v2/orb_slam3/evaluation/ground_truth_mono.txt",
-                        sensor_config="stereo", gravity_vector=[-0, -1, 0]) # mono stereo or inertial
+    te = TrajectoryEval(odometry_path="/home/ubuntu/ws_blue/src/slam-wrapper-v2/orb_slam3/evaluation/odometry.txt",
+                        gt_path="/home/ubuntu/ws_blue/src/slam-wrapper-v2/orb_slam3/evaluation/ground_truth.txt",
+                        sensor_config="stereo", gravity_vector=[0, 0.5, 0.5]) # mono stereo or inertial
     # rotation around vector [-0.00385631,  0.99990967, -0.01287541]
     # unnormalised [-0.01175016,  3.04671612, -0.03923125]
     te.draw_trajectory(gt=True, add_orientation_gt=0, add_orientation_est=0)

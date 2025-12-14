@@ -116,6 +116,9 @@ public:
     bool isImuInitialized();
 
     void ApplyScaledRotation(const Sophus::SE3f &T, const float s, const bool bScaledVel=false);
+    void SetMapTransformCallback(std::function<void(const Sophus::SE3f&, float)> cb){
+        mpCallback = cb;
+    }
 
     void SetInertialSensor();
     bool IsInertial();
@@ -200,6 +203,9 @@ protected:
 
     // Mutex
     std::mutex mMutexMap;
+
+    // Callback for map transformations
+    std::function<void(const Sophus::SE3f&, float)> mpCallback;
 
 };
 

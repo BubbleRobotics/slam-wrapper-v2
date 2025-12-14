@@ -5,13 +5,14 @@
 #--------------------------------------------------------------------------------------------
 File.version: "1.0"
 
+# General Camera Parameters
 Camera.type: "PinHole"
 Camera.width: 640
 Camera.height: 480
 Camera.fps: 30
 Camera.RGB: 1
-# Camera calibration and distortion parameters (OpenCV)
 
+# Camera calibration and distortion parameters (OpenCV)
 Camera1.fx: 389.013427734375
 Camera1.fy: 389.013427734375
 Camera1.cx: 323.04339599609375

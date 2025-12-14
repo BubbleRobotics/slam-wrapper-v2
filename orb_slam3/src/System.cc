@@ -1638,4 +1638,3 @@ bool System::SaveMap(const string &filename)
 }
 
 } //namespace ORB_SLAM
-

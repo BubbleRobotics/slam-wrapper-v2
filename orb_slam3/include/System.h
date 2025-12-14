@@ -39,6 +39,7 @@
 #include "Viewer.h"
 #include "ImuTypes.h"
 #include "Settings.h"
+#include "Map.h"
 
 
 namespace ORB_SLAM3
@@ -188,6 +189,7 @@ public:
     std::vector<MapPoint*> GetAllMapPoints();
     std::vector<Sophus::SE3f> GetAllKeyframePoses();
     cv::Mat GetCurrentFrame();
+    Atlas* mpAtlas;
 
     Sophus::SE3f GetCamTwc();
     Sophus::SE3f GetImuTwb();
@@ -227,7 +229,6 @@ private:
 
     // Map structure that stores the pointers to all KeyFrames and MapPoints.
     //Map* mpMap;
-    Atlas* mpAtlas;
 
     // Tracker. It receives a frame and computes the associated camera pose.
     // It also decides when to insert a new keyframe, create some new MapPoints and

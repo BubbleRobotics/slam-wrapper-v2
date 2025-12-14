@@ -280,6 +280,9 @@ void Map::ApplyScaledRotation(const Sophus::SE3f &T, const float s, const bool b
         pMP->UpdateNormalAndDepth();
     }
     mnMapChange++;
+    if (mpCallback){
+        mpCallback(T, s);
+    }
 }
 
 void Map::SetInertialSensor()
