@@ -147,6 +147,12 @@ void DvlStereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr
     }
 };
 
+// --------- DVL CALLBACK --------- //
+
+void DvlStereoMode::DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg){
+
+};
+
 // ---------- PUBLISHING ON TOPICS ---------- //
 
 void DvlStereoMode::PublishOrbSlamOutput(const Sophus::SE3f& Tcw, 

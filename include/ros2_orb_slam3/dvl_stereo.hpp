@@ -18,6 +18,7 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <tf2_ros/transform_broadcaster.h>
+#include <dvl_msgs/msg/dvl.hpp>
 
 // Synchronised subscribers
 #include <message_filters/subscriber.h>
@@ -102,6 +103,8 @@ class DvlStereoMode : public rclcpp::Node{
 
         void StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr& img0,
                             const sensor_msgs::msg::Image::ConstSharedPtr& img1);
+
+        void DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg);
 
         void InitializeSLAM();
 
