@@ -15,7 +15,9 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(realsense_launch)
     )
 
-    orbslam_launch   = os.path.join(pkg_share_orb, 'launch', 'orbslam.launch.py')
+    # Depending on which mode select the correct SLAM launch file
+    orbslam_launch   = os.path.join(pkg_share_orb, 'launch', 'stereo.launch.py')
+    # orbslam_launch   = os.path.join(pkg_share_orb, 'launch', 'mono.launch.py')
     orbslam_launch_include = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(orbslam_launch)
     )

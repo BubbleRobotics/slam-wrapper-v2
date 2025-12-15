@@ -121,16 +121,16 @@ class MonoMode : public rclcpp::Node
 
         // switch for inertial and non-inertial mode
         bool isInertial = true;
+        bool manualTimeSync = false;
+        bool imu_from_yaml = false;
         
         // IMU buffer 
         nav_msgs::msg::Path path_;
     
         std::string worldFrameId_ = "mapOrb";
-        std::string cameraFrameOrbId = "cameraOrb";
+        std::string cameraFrameOrbId_ = "cameraOrb";
         std::string cameraFrameId_ = "";
         std::string imuFrameId_ = "";
-        std::string worldGazeboFrameId_ = "map";
-        std::string realsenseFrameId_ = "realsense_d455_link_L";
         bool publishTf_ = true;
         bool publishPointcloud_ = true;
 
@@ -139,30 +139,38 @@ class MonoMode : public rclcpp::Node
         tf2_ros::TransformListener tf_listener_;
         geometry_msgs::msg::TransformStamped transformImuCam;
 
+        // Additional variables for conversions
+        Sophus::SE3f T_orbw2gzbw; // stores orb world to gazebo world transform
+        bool has_initial_alignment_ = false;
+        std::mutex mutex_alignment_;
+        std::string worldGazeboFrameId_ = "map";
+        std::string realsenseFrameId_ = "realsense_d455_link_L";
+
         //    _____                 _   _                  
         //   |  ___|   _ _ __   ___| |_(_) ___  _ __  ___  
         //   | |_ | | | | '_ \ / __| __| |/ _ \| '_ \/ __| 
         //   |  _|| |_| | | | | (__| |_| | (_) | | | \__ \ 
         //   |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/ 
+        //* Helper functions
+        void InitializeVSLAM(); //* Method to bind an initialized VSLAM framework to this node
+
         //* ROS callbacks
         void ImgCallback(const sensor_msgs::msg::Image::SharedPtr img_msg); // Callback to process RGB image and semantic matrix sent by Python node
         void ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg); // Callback to process IMU data sent by Python node
-
-        //* Helper functions
-        void InitializeVSLAM(); //* Method to bind an initialized VSLAM framework to this node
         bool InitImuCamTransform(); //* Method to initialize the transform between IMU and camera frames
-        bool CheckSuccessfulTracking(Sophus::SE3f Tcw); //* Method to check if tracking was successful and publish pose 
 
         // Publishers for Orb Slam Output
-        void PublishOrbSlamOutput(const Sophus::SE3f& Twc, 
-                                    const sensor_msgs::msg::Image::SharedPtr img_msg, 
+        void PublishOrbSlamOutput(const Sophus::SE3f& T_orbw2orbcam, 
+                                    const sensor_msgs::msg::Image::ConstSharedPtr img_msg, 
                                     const cv_bridge::CvImageConstPtr& cv_ptr);
-        void PublishPose(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
-        void PublishOdometry(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::SharedPtr img_msg);
-        void PublishPath(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
-        void PublishTF(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::SharedPtr img_msg);
+        void PublishPose(const Sophus::SE3f& T_orbw2orbcam, const std_msgs::msg::Header& header);
+        void PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const std_msgs::msg::Header& header);
+        void PublishPath(const Sophus::SE3f& T_orbcam2gzbw, const std_msgs::msg::Header& header);
         void PublishMapPoints(const std_msgs::msg::Header& header);
-        void PublishTrackingImage(const cv::Mat& image, const sensor_msgs::msg::Image::SharedPtr img_msg);
+        void PublishTrackingImage(const cv::Mat& image, const sensor_msgs::msg::Image::ConstSharedPtr img_msg);
+        void OnOrbMapTransformed(const Sophus::SE3f& T, float s);
+        void PublishWorldToOrbMapTF(const rclcpp::Time &stamp);
+        void PublishOrbMapToOrbCamTF(const Sophus::SE3f& T_orbw2orbcam, const rclcpp::Time &stamp);
 
 };
 

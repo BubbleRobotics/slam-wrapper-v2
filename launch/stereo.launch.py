@@ -18,7 +18,7 @@ def generate_launch_description():
         "ros2_orb_slam3")
 
     # Create nodes
-    mono_inertial_node: Node = Node(
+    stereo_node: Node = Node(
             package='ros2_orb_slam3',
             executable='stereo_node_cpp',
             name='stereo_node',
@@ -30,7 +30,7 @@ def generate_launch_description():
                 {'img0_topic': '/cam_realsense/camera/infra1/image_rect_raw'},
                 {'img1_topic': '/cam_realsense/camera/infra2/image_rect_raw'},
                 {'imu_topic': '/cam_realsense/camera/imu'},
-                {'enable_debug_window': False},
+                {'enable_debug_window': True},
                 {'is_inertial': True},
                 {'manual_time_sync': False},
                 {'imu_from_yaml': False},
@@ -38,6 +38,6 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        mono_inertial_node,
+        stereo_node,
     ])
 

@@ -9,7 +9,6 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
@@ -19,10 +18,10 @@ def generate_launch_description():
         "ros2_orb_slam3")
 
     # Create nodes
-    mono_inertial_node: Node = Node(
+    stereo_node: Node = Node(
             package='ros2_orb_slam3',
             executable='stereo_node_cpp',
-            name='stereo_node',
+            name='stereo_sim_node',
             namespace='ORB_SLAM3',
             output='screen',
             parameters=[
@@ -39,6 +38,6 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        mono_inertial_node,
+        stereo_node,
     ])
 

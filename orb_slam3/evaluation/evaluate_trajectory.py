@@ -756,7 +756,7 @@ if __name__ == "__main__":
     # rotation around vector [-0.00385631,  0.99990967, -0.01287541]
     # unnormalised [-0.01175016,  3.04671612, -0.03923125]
     te.draw_trajectory(gt=True, add_orientation_gt=0, add_orientation_est=0)
-    te.similarity_transform_3d(align_all_frames=True)
+    te.similarity_transform_3d(align_all_frames=False)
     te.draw_trajectory(gt=True, add_orientation_est=0, add_orientation_gt=0)
     ate = te.absolue_trajectory_error()
     print(f"{ate[0]:.3f}m -- ATE position error")

@@ -18,10 +18,10 @@ def generate_launch_description():
         "ros2_orb_slam3")
 
     # Create nodes
-    mono_inertial_node: Node = Node(
+    mono_node: Node = Node(
             package='ros2_orb_slam3',
             executable='mono_node_cpp',
-            name='mono_inertial_node',
+            name='mono_sim_node',
             namespace='ORB_SLAM3',
             output='screen',
             parameters=[
@@ -31,10 +31,12 @@ def generate_launch_description():
                 {'imu_topic': '/vectornav/Imu_raw'},
                 {'enable_debug_window': True},
                 {'is_inertial': True},
+                {'manual_time_sync': False},
+                {'imu_from_yaml': False},
             ]
     )
 
     return LaunchDescription([
-        mono_inertial_node,
+        mono_node,
     ])
 

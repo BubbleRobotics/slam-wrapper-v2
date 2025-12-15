@@ -400,14 +400,14 @@ void StereoMode::PublishOrbSlamOutput(const Sophus::SE3f& T_orbw2orbcam,
     PublishTrackingImage(cv_ptr->image, img_msg);
 }
 
-void StereoMode::PublishPose(const Sophus::SE3f& T_orbcam2orbw, const std_msgs::msg::Header& header)
+void StereoMode::PublishPose(const Sophus::SE3f& T_orbw2orbcam, const std_msgs::msg::Header& header)
 {
     geometry_msgs::msg::PoseStamped pose_msg;
     pose_msg.header.stamp = header.stamp;
     pose_msg.header.frame_id = worldFrameId_;
     
-    Eigen::Vector3f t = T_orbcam2orbw.translation();
-    Eigen::Quaternionf q = T_orbcam2orbw.unit_quaternion();
+    Eigen::Vector3f t = T_orbw2orbcam.translation();
+    Eigen::Quaternionf q = T_orbw2orbcam.unit_quaternion();
     
     pose_msg.pose.position.x = t.x();
     pose_msg.pose.position.y = t.y();
