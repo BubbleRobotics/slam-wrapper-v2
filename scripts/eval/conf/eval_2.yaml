@@ -1,0 +1,61 @@
+### ---------- DIRECTORY SETTINGS ---------- ###
+
+# Use the gt and estimated trajectory files 
+# specified in the paths.yaml file
+defaults:
+  - paths: paths
+  - _self_
+
+# Hydra settings: put the output files at the 
+# desired location, but keep hydras odering by 
+# date and time
+hydra:
+  run: 
+    dir: /home/ubuntu/ws_blue/data/eval_output/${now:%Y-%m-%d}/${now:%H-%M-%S}
+
+# Within the output directory, create subdirectories. 
+# Implemented in EvaluateTrajecMulti
+output_subdir:
+  plots: ${hydra:runtime.output_dir}/plots
+  data: ${hydra:runtime.output_dir}/error_data
+
+### ---------- EVALUATION SETTINGS ---------- ###
+
+# How trajecotries are evaluated. One of "stereo",
+# "mono", "inertial", and "adaptive". Adaptive means that
+# the pipeline type decides. Applied to all trajectories.
+eval_setting: "mono"
+
+# Relative Trajectory Error
+rte:
+  do_analysis: false                     # if rte is computed
+  trajec_lengths: [0.1, 0.4, 1.6, 6.4]
+  show: true
+  save:
+    subtrajec: false
+    stats: false
+
+# Absolute Trajectory Error
+ate:
+  do_analysis: true                     # if ate is computed
+  align_all_frames: true
+  draw_trajec:
+    show: true
+    gt: true
+    # show orientation at this frame. None or int
+    add_orientation_gt: 0
+    add_orientation_est: 0
+
+evals:
+  
+  Stereo_sim:
+    gt: /home/ubuntu/ws_blue/data/pipeline_runs/sim/eco_struc_01/stereo/ground_truth_stereo.txt
+    run:
+      stereo: 
+        dir: /home/ubuntu/ws_blue/data/pipeline_runs/sim/eco_struc_01/stereo/runs
+        failures: []
+          # Within the trajecotry above, what estimated
+          # trajectories have to be considered failures
+          # (lost tracking without recovering)
+          # Write the file stem (ie. without suffix)
+          # - live_trajec_01

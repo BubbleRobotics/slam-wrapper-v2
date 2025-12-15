@@ -42,8 +42,11 @@ class TrajectoryEvalMulti:
             
             for pipeline_type_name, pipeline_type in seq.run.items():
                 plot_dir = plot_seq_dir.joinpath(pipeline_type_name)
-
-                for pipeline_run in Path(pipeline_type.dir).glob("*.txt"):
+                pipeline_runs = list(Path(pipeline_type.dir).glob("*.txt"))
+                if len(pipeline_runs) == 0:
+                    raise ValueError("Directory of pipeline runs does not contain any .txt files")
+                
+                for pipeline_run in pipeline_runs:
 
                     if self.cfg.eval_setting == "adaptive":
                         eval_setting = pipeline_type_name
@@ -64,6 +67,7 @@ class TrajectoryEvalMulti:
                         )
                     
                     self.evaluators.append(evaluator)
+            
     
 
     def do_analysis(self):
