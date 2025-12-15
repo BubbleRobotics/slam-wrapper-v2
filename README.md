@@ -1,15 +1,13 @@
 ![License](https://img.shields.io/badge/License-GPLv3-blue.svg)
-![Build Status](https://img.shields.io/badge/Build-Passing-success.svg)
 ![ROS2](https://img.shields.io/badge/ROS2-Jazzy-purple.svg)
-![Version](https://img.shields.io/badge/Version-2.0.0-blue.svg)
 
-# ROS2 ORB SLAM3 V1.0 package 
+# ROS2 ORB SLAM3 
 
-A ROS2 package for ORB SLAM3 V1.0. Focus is on native integration with ROS2 ecosystem. This is version `2.0.0` that is built and tested to be compatible with ROS 2 Jazzy. Due to some dependency and workarounds, **this version is not compatible with ROS 2 Humble**. Switch to the `main` branch for a ROS 2 Humble compatible version
+This ROS2 package acts as a communication layer between ROS and ORB SLAM3, thus enabling feeding 
+data through ROS2 to ORB SLAM for accurate state estimation. Furtehrmore the package takes advantag 
+of ROS transforms, making manual adding of spatial information about camera to IMU unnessasray. 
 
-My goal is to provide a "bare-bones" starting point for developers in using ORB SLAM3 framework in their ROS 2 projects. Hence, this package will not use more advanced features of ROS 2 such as rviz, tf and launch files. This project structure is heavily influenced by the excellent ROS1 port of ORB SLAM3 by [thien94](https://github.com/thien94/orb_slam3_ros/tree/master). 
-
-If you find this work useful please consider citing the original ORB-SLAM3 paper and my recent paper that uses this package in solving short-term relocalization (kidnapped robot problem) as shown below
+## Research Papers
 
 ```bibtex
 @INPROCEEDINGS{kamal2024solving,
@@ -38,7 +36,11 @@ If you find this work useful please consider citing the original ORB-SLAM3 paper
  }
 ```
 
-## 0. Preamble
+## 0. Preamble and Libraries
+
+This section is purely for information purpose. All dependencies and libraries are installed through 
+the [docker image](https://github.com/BubbleRobotics/docker-dev-container) and can be used through 
+the [development environment](https://github.com/BubbleRobotics/docker-dev-environment).
 
 This package builds [ORB-SLAM3](https://github.com/UZ-SLAMLab/ORB_SLAM3) `V1.0` as a shared internal library. Comes included with a number of Thirdparty libraries [DBoW2, g2o, Sophus]
 
@@ -55,162 +57,35 @@ For newcomers into the ROS 2 ecosystem, this package serves as an example of `bu
 
 * In **resource constrainted hardwares** such as Raspberry Pi 4, Jetson Nano Orin, you need to extend `SWAP` space to at least `16Gb`. 
 
-## Testing platforms
+## Configure
 
-1. Intel i5-9300H, x86_64 bit architecture , Ubuntu 22.04 LTS (Jammy Jellyfish) and RO2 Humble Hawksbill (LTS)
-2. AMD Ryzen 5600X, x86_64 bit architecture, Ubuntu 22.04 LTS (Jammy Jellyfish) and RO2 Humble Hawksbill (LTS)
+Configuiration of this pipeline is done through yaml files in the ```orb_slam3/config``` directory. 
+We focus on  stereo implementations only. A detailed guide for all parameters set there can be found 
+in the ```orb_slam3/config/Calibration``` directory. 
 
-## 1. Prerequisitis
+Important! Even though we can now read TF's between camera and IMU automatically, orb slam still expects
+it to be set in the config file. Simply put the Identety matrix and you are good to go. 
 
-Start with installing the following prerequisits
+Furthermore I'd advise the use of the pre-configured launch files in ```launch```. Adapt it to your 
+needs by setting: 
+- the config file ("settings_file")
+- the ros topics used ("img0_topic" <- left, "img1_topic" <- right, "imu_topic")
+- if the algorithm should also consider inertial information ("is_inertial")
+- if the image time should be overwritten by current time ("manual_time_sync") ... for debugging
+- if the IMU tf is to be read from the config file ("imu_from_yaml")
+- if orb slams debugging window should be opened ("enable_debug_window")
+- Orb vocabulary file ("voc_file") ... do not change
 
-### Eigen3
+## Run 
+
+if you changed any config/launch file rebuild:
 
 ```
-sudo apt install libeigen3-dev
+colcon build 
 ```
 
-### Pangolin and configuring dynamic library path
-
-We install Pangolin system wide and configure the dynamic library path so the necessary .so from Pangolin can be found by ros2 package during run time. More info here https://robotics.stackexchange.com/questions/105973/ros2-port-of-orb-slam3-can-copy-libdow2-so-and-libg2o-so-using-cmake-but-gettin
-
-#### Install Pangolin
+Afterwards simply run:
 
 ```
-cd ~/Documents
-git clone https://github.com/stevenlovegrove/Pangolin
-cd Pangolin
-./scripts/install_prerequisites.sh --dry-run recommended # Check what recommended softwares needs to be installed
-./scripts/install_prerequisites.sh recommended # Install recommended dependencies
-cmake -B build
-cmake --build build -j4
-sudo cmake --install build
+ros2 launch ros2_orb_slam3 <launch_file>
 ```
-
-#### Configure dynamic library
-
-`LD_LIBRARY_PATH` is an environment variable that tells the dynamic linker where to search for shared libraries (.so files) at runtime. First we check if ```/usr/lib/local``` is available in `LD_LIBRARY_PATH`.
-
-```bash
-echo $LD_LIBRARY_PATH
-```
-
-If you see no output as shown below 
-
-```bash
-/opt/ros/jazzy/opt/gz_sim_vendor/lib:.....:/usr/lib/local
-```
-
-then `/usr/local/lib` is currently not in the `LD_LIBRARY_PATH` add it as shown below 
-
-```bash
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib/local
-sudo ldconfig
-```
-
-##### Optional Step: Add /usr/local/lib permanently by modifying .bashrc
-
-Open the ```.bashrc``` file in ```\home``` directory and add these lines at the very end
-
-```bash
-if [[ ":$LD_LIBRARY_PATH:" != *":/usr/local/lib:"* ]]; then
-    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
-fi
-```
-
-Finally, source ```.bashrc``` file 
-
-```bash
-source ~/.bashrc
-```
- 
-#### OpenCV
-By default both Ubuntu 22.04 and Ubuntu 24.04 comes with >OpenCV 4.2. Check to make sure you have at least 4.2 installed. Run the following in a terminal
-
-```bash
-python3 -c "import cv2; print(cv2.__version__)" 
-```
-
-#### cv_brdige
-
-Check to ensure `cv_bridge` package is installed in the `BASE WORKSPACE` i.e. `/ros/opt/<ROS-DISTRO>`. Try the following
-
-```bash
-ros2 pkg list | grep cv_bridge
-```
-
-If the string `cv_brdige` did not show up, install it as shown bellow
-
-```bash
-source /opt/ros/<ROS-DISTRO>/setup.bash
-sudo apt-get install ros-<ROS-DISTRO>-cv-bridge 
-```
-
-#### Create symbolic link to OpenCV 4.6 (or a later version installed)
-
-As of June 2025, it appears the `.so` objects for `g2o` library was compiled against OpenCV 4.5d which is absent in Ubuntu 24.04 Humble. This error is seen without creating a symbolic link
-
-```bash
-ros2 run ros2_orb_slam3 mono_node_cpp --ros-args -p node_name_arg:=mono_slam_cpp
-/home/az-ubuntu-2204/ros2_ws/install/ros2_orb_slam3/lib/ros2_orb_slam3/mono_node_cpp: error while loading shared libraries: libopencv_core.so.4.5d: cannot open shared object file: No such file or directory
-```
-
-To circumvent this problem, create a symbolic link to `libopencv_core.so.4.6`
-
-```bash
-sudo ln -s /lib/x86_64-linux-gnu/libopencv_core.so.406 /lib/x86_64-linux-gnu/libopencv_core.so.4.5d
-```
-
-NOTE 1: The above only persists until system is rebooted, I leave it to the user to decide on a more `permanent` approach then the one shown above. In my testing, this setting appears to be persist beyond one system reboot.
-
-NOTE 2: A permanent solution to the above is recompiling `g2o` library. I had made some changes to the `CmakeLists.txt` file for the `g2o` package shipped in the `Thirdparty` directory but it needs more work. Please open a Pull Request if you figure out how to rebuild `g2o` to link against OpenCV version available in a system (should be agnostic to Ubuntu 22.04 / Ubuntu 24.04 i.e. works with the installed version of OpenCV present in the system).
-
-
-## 2. Installation
-
-Follow the steps below to create the ```ros2_ws``` workspace, install dependencies and build the package. Note, the workspace must be named ```ros2_ws``` due to a `HARDCODED` path in the `MonoDriver` class in the `mono_driver_node.py` script and path to the config YAML file. I leave it to the developers to change this behavior as they see fit.
-
-```bash
-cd ~
-mkdir -p ~/ros2_ws/src
-cd ~/ros2_ws/src
-git clone https://github.com/Mechazo11/ros2_orb_slam3.git
-cd .. # make sure you are in ~/ros2_ws root directory
-rosdep update
-rosdep install -r --from-paths src --ignore-src -y --rosdistro <ROS-DISTRO>
-source /opt/ros/<ROS-DISTRO>/setup.bash
-colcon build --symlink-install
-```
-
-## 3. Monocular Example:
-
-Run the builtin example to verify the package is working correctly
-In one terminal [cpp node]
-
-```bash
-cd ~/ros2_ws/
-source ./install/setup.bash
-ros2 run ros2_orb_slam3 mono_node_cpp --ros-args -p node_name_arg:=mono_slam_cpp
-```
-
-In another terminal [python node]
-
-```bash
-cd ~/ros2_ws/
-source ./install/setup.bash
-ros2 run ros2_orb_slam3 mono_driver_node.py --ros-args -p settings_name:=EuRoC -p image_seq:=sample_euroc_MH05
-```
-
-Both nodes would perform a handshake and the VSLAM framework would then work as shown in the following video clip
-
-
-https://github.com/Mechazo11/ros2_orb_slam3/assets/44814419/af9eaa79-da4b-4405-a4d7-e09242ab9660
-
-
-Thank you for taking the time in checking this project out. I hope it helps you out. If you find this package useful in your project consider citing the papers mentioned above
-
-## TODO next version:
-
-- [ ] Stereo mode example
-- [ ] RGBD mode example
-- [ ] Detailed build instructions for `aarch64` based computers i.e. Orin Nano, Raspberry Pi etc.
