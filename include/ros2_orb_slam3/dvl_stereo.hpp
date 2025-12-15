@@ -10,7 +10,7 @@
 // ---- ROS ---- //
 
 // Basic ros functionality
-#include "rclcpp/rclcpp.hpp"isInertial
+#include "rclcpp/rclcpp.hpp"
 
 // Message types
 #include "sensor_msgs/msg/image.hpp"
@@ -70,6 +70,7 @@ class DvlStereoMode : public rclcpp::Node{
 
         typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::msg::Image, sensor_msgs::msg::Image> ImgSyncPolicy;
         std::shared_ptr<message_filters::Synchronizer<ImgSyncPolicy>> sync_;
+        rclcpp::Subscription<dvl_msgs::msg::DVL>::SharedPtr dvlSub_;
 
         // Publishers
         std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
