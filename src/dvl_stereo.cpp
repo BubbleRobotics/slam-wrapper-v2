@@ -16,6 +16,7 @@ DvlStereoMode::DvlStereoMode()
     this->declare_parameter("img0_topic", "/camera/left/image_dehazed/raw"); // topic to receive image messages
     this->declare_parameter("img1_topic", "/camera/right/image_dehazed/raw"); // topic to receive image messages
     this->declare_parameter("dvl_topic", "/dvl/data");  // topic DVL messages
+    this->declare_parameter("is_dvlused", false); // switch for inertial and non-inertial mode
     this->declare_parameter("enable_debug_window", true); // Enable debug window showing SLAM in pangolin/opencv
     this->declare_parameter<bool>("publish_tf", true);  
     
@@ -28,6 +29,8 @@ DvlStereoMode::DvlStereoMode()
     img0Topic = img0TopicParam.as_string();
     rclcpp::Parameter img1TopicParam = this->get_parameter("img1_topic");
     img1Topic = img1TopicParam.as_string();
+    rclcpp::Parameter isDVLParam = this->get_parameter("is_dvlused");
+    isDVLUsed = isDVLParam.as_bool();
     rclcpp::Parameter enableDebugWindowParam = this->get_parameter("enable_debug_window");
     enableDebugWindow = enableDebugWindowParam.as_bool();
     rclcpp::Parameter publishTfParam = this->get_parameter("publish_tf");
@@ -41,6 +44,7 @@ DvlStereoMode::DvlStereoMode()
     RCLCPP_INFO(this->get_logger(), "img0_topic: %s", img0Topic.c_str());
     RCLCPP_INFO(this->get_logger(), "img1_topic: %s", img1Topic.c_str());
     RCLCPP_INFO(this->get_logger(), "dvl_topic: %s", dvlTopic.c_str());
+    RCLCPP_INFO(this->get_logger(), "is_dvlused %b", isDVLUsed);
 
     // ---- SUBSCRIBERS ---- //
 
@@ -59,6 +63,11 @@ DvlStereoMode::DvlStereoMode()
             std::placeholders::_2
         )
     );
+
+    if (isDVLUsed)
+    {
+        dvlSub_ = this->create_subscription<dvl_msgs::msg::DVL>(dvlTopic, rclcpp::SensorDataQoS(), std::bind(&DvlStereoMode::DvlCallback, this, std::placeholders::_1));
+    }
 
     // ---- PUBLISHERS ---- //
 
@@ -100,17 +109,26 @@ void DvlStereoMode::InitializeSLAM(){
         rclcpp::shutdown();
     } 
 
+    if (isDVLUsed)
+    {
+        RCLCPP_INFO(this->get_logger(), "Setting to DVL-stereo mode");
+        sensorType = ORB_SLAM3::System::DVL_STEREO;
+    }
+    else
+    {
+        RCLCPP_INFO(this->get_logger(), "Setting to stereo mode");
+        sensorType = ORB_SLAM3::System::STEREO;
+    }
+
     if (enableDebugWindow)
     {
         enablePangolinWindow = true; // Shows Pangolin window output
         enableOpenCVWindow = true; // Shows OpenCV window output  
     }
 
-    RCLCPP_INFO(this->get_logger(), "Setting to DVL-stereo mode");
-    sensorType = ORB_SLAM3::System::STEREO; //ORB_SLAM3::System::DVL_STEREO;
-
     // Initializing System object:
     pAgent = new ORB_SLAM3::System(vocFilePath, settingsFilePath, sensorType, enablePangolinWindow);
+    RCLCPP_INFO(this->get_logger(), "ORB-SLAM3 Stereo Node initialized");
 };
 
 // --------- STEREO CALLBACK --------- //

@@ -18,24 +18,25 @@ def generate_launch_description():
         "ros2_orb_slam3")
 
     # Create nodes
-    mono_inertial_node: Node = Node(
+    dvl_stereo_node: Node = Node(
             package='ros2_orb_slam3',
             executable='dvl_stereo_node_cpp',
             name='dvl_stereo_node',
             namespace='ORB_SLAM3',
             output='screen',
             parameters=[
-                {'settings_file': package_dir + '/orb_slam3/config/Stereo/HalfTank_Easy.yaml'},
+                {'settings_file': package_dir + '/orb_slam3/config/Stereo/Gazebo.yaml'},
                 {'voc_file': package_dir + '/orb_slam3/Vocabulary/ORBvoc.txt.bin'},
-                {'img0_topic': '/camera/left/image_dehazed/raw'},
-                {'img1_topic': '/camera/right/image_dehazed/raw'},
-                {'imu_topic': '/cam_realsense/camera/imu'},
+                {'img0_topic': '/camera_d455/ir_left/image_raw'},
+                {'img1_topic': '/camera_d455/ir_right/image_raw'},
+                {'dvl_topic': '/dvl/twist_data_synced'},
+                {'is_dvlused': False},
                 {'enable_debug_window': True},
-                {'publish_tf': True}
+                {'publish_tf': True},
             ]
     )
 
     return LaunchDescription([
-        mono_inertial_node,
+        dvl_stereo_node,
     ])
 

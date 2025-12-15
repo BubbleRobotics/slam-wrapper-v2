@@ -10,7 +10,7 @@
 // ---- ROS ---- //
 
 // Basic ros functionality
-#include "rclcpp/rclcpp.hpp"
+#include "rclcpp/rclcpp.hpp"isInertial
 
 // Message types
 #include "sensor_msgs/msg/image.hpp"
@@ -60,6 +60,7 @@ class DvlStereoMode : public rclcpp::Node{
         std::string dvlTopic;
 
         // Node parameters: bools
+        bool isDVLUsed;
         bool enableDebugWindow;
         bool publishTf_;
 
