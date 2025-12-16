@@ -102,6 +102,7 @@ add_library(orb_slam3_lib SHARED
   orb_slam3/src/TwoViewReconstruction.cc
   orb_slam3/src/Config.cc
   orb_slam3/src/Settings.cc
+  orb_slam3/src/DvlTypes.cc
   orb_slam3/include/System.h
   orb_slam3/include/Tracking.h
   orb_slam3/include/LocalMapping.h
@@ -132,6 +133,7 @@ add_library(orb_slam3_lib SHARED
   orb_slam3/include/SerializationUtils.h
   orb_slam3/include/Config.h
   orb_slam3/include/Settings.h
+  orb_slam3/include/DvlTypes.h
 )
 
 set_target_properties(orb_slam3_lib PROPERTIES VERSION "${orb_slam3_lib_VERSION}") # TODO need to findout why this is required
