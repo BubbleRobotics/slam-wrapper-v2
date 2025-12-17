@@ -6,6 +6,7 @@
 #define DVL_TYPES_H
 
 #include <opencv2/core/core.hpp>
+#include <Eigen/Dense>
 
 #endif
 
