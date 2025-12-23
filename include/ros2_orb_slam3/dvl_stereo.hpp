@@ -80,7 +80,7 @@ class DvlStereoMode : public rclcpp::Node{
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr trackingImagePub_;
         
         std::string worldFrameId_ = "mapOrb";
-        std::string cameraFrameOrbId = "cameraOrb";
+        std::string cameraFrameOrbId_ = "cameraOrb";
 
         // ---- PIPELINE ---- //
 
@@ -108,7 +108,7 @@ class DvlStereoMode : public rclcpp::Node{
 
         void DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg);
 
-        void InitializeSLAM();
+        void InitializeVSLAM();
 
         // ---- ROS ---- //
         
@@ -118,7 +118,7 @@ class DvlStereoMode : public rclcpp::Node{
 
         void PublishPose(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
 
-        void PublishOdometry(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::ConstSharedPtr img_msg);
+        void PublishOdometry(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
 
         void PublishPath(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
         

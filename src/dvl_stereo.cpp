@@ -88,7 +88,7 @@ DvlStereoMode::DvlStereoMode()
         tfBroadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
     }
 
-    InitializeSLAM();
+    InitializeVSLAM();
 
 };
 
@@ -98,9 +98,9 @@ DvlStereoMode::~DvlStereoMode(){
     pAgent->Shutdown();
 }
 
-// --------- INITIALIZE SLAM --------- //
+// --------- INITIALIZE VSLAM --------- //
 
-void DvlStereoMode::InitializeSLAM(){
+void DvlStereoMode::InitializeVSLAM(){
 
     // Watchdog, if the paths to vocabular and settings files are still not set (DOUBLECHECK)
     if (vocFilePath == "file_not_set" || settingsFilePath == "file_not_set")
@@ -155,9 +155,10 @@ void DvlStereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr
     Sophus::SE3f Tcw = pAgent->TrackStereo(left_cv_ptr->image, right_cv_ptr->image, t);
 
     // Check if pipeline predicts a zero pose
-    if(!Tcw.translation().isZero(1e-6))
+    if(pAgent->GetTrackingState() == ORB_SLAM3::Tracking::OK)
     {
-        RCLCPP_INFO(this->get_logger(), "Successful tracking");
+        // RCLCPP_INFO(this->get_logger(), "Successful tracking");
+        PublishOrbSlamOutput(Tcw, left_img, left_cv_ptr);
     }
     else
     {
@@ -168,7 +169,13 @@ void DvlStereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr
 // --------- DVL CALLBACK --------- //
 
 void DvlStereoMode::DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg){
-
+    // DVL Message
+    RCLCPP_INFO(this->get_logger(), "DVL Message received");
+    RCLCPP_INFO(this->get_logger(), "velocity x: %f", msg->velocity.x);
+    RCLCPP_INFO(this->get_logger(), "velocity y: %f", msg->velocity.y);
+    RCLCPP_INFO(this->get_logger(), "velocity z: %f", msg->velocity.z);
+    RCLCPP_INFO(this->get_logger(), "sec: %f", msg->header.stamp.sec);
+    RCLCPP_INFO(this->get_logger(), "nanosec: %f", msg->header.stamp.nanosec);
 };
 
 // ---------- PUBLISHING ON TOPICS ---------- //
@@ -184,7 +191,7 @@ void DvlStereoMode::PublishOrbSlamOutput(const Sophus::SE3f& Tcw,
     PublishPose(Twc, img_msg->header);
     
     // Publish odometry
-    PublishOdometry(Twc, img_msg);
+    PublishOdometry(Twc, img_msg->header);
 
     // Publish path
     PublishPath(Twc, img_msg->header);
@@ -217,13 +224,12 @@ void DvlStereoMode::PublishPose(const Sophus::SE3f& Twc, const std_msgs::msg::He
     posePub_->publish(pose_msg);
 };
 
-void DvlStereoMode::PublishOdometry(const Sophus::SE3f& Twc, 
-                                    const sensor_msgs::msg::Image::ConstSharedPtr img_msg)
+void DvlStereoMode::PublishOdometry(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
 {
     nav_msgs::msg::Odometry odom_msg;
-    odom_msg.header.stamp = img_msg->header.stamp;
+    odom_msg.header.stamp = header.stamp;
     odom_msg.header.frame_id = worldFrameId_;
-    odom_msg.child_frame_id = cameraFrameOrbId;
+    odom_msg.child_frame_id = cameraFrameOrbId_;
     
     Eigen::Vector3f t = Twc.translation();
     Eigen::Quaternionf q = Twc.unit_quaternion();
@@ -269,7 +275,7 @@ void DvlStereoMode::PublishTF(const Sophus::SE3f& Twc, const sensor_msgs::msg::I
     geometry_msgs::msg::TransformStamped transform;
     transform.header.stamp = img_msg->header.stamp;
     transform.header.frame_id = worldFrameId_;
-    transform.child_frame_id = cameraFrameOrbId;
+    transform.child_frame_id = cameraFrameOrbId_;
     
     Eigen::Vector3f t = Twc.translation();
     Eigen::Quaternionf q = Twc.unit_quaternion();
