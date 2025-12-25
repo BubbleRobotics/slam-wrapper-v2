@@ -2,7 +2,7 @@
 
 // -------- CONSTRUCTOR -------- //
 
-DvlStereoMode::DvlStereoMode()
+InertialDvlStereoMode::InertialDvlStereoMode()
     
     // initialiser list: initialising parent node class
     : Node("dvl_stereo_node")
@@ -57,7 +57,7 @@ DvlStereoMode::DvlStereoMode()
     sync_ = std::make_shared<message_filters::Synchronizer<ImgSyncPolicy>>(ImgSyncPolicy(10), *img0Sub_, *img1Sub_);
     sync_->registerCallback(
         std::bind(
-            &DvlStereoMode::StereoCallback,
+            &InertialDvlStereoMode::StereoCallback,
             this,
             std::placeholders::_1,
             std::placeholders::_2
@@ -66,7 +66,7 @@ DvlStereoMode::DvlStereoMode()
 
     if (isDVLUsed)
     {
-        dvlSub_ = this->create_subscription<dvl_msgs::msg::DVL>(dvlTopic, rclcpp::SensorDataQoS(), std::bind(&DvlStereoMode::DvlCallback, this, std::placeholders::_1));
+        dvlSub_ = this->create_subscription<dvl_msgs::msg::DVL>(dvlTopic, rclcpp::SensorDataQoS(), std::bind(&InertialDvlStereoMode::DvlCallback, this, std::placeholders::_1));
     }
 
     // ---- PUBLISHERS ---- //
@@ -94,13 +94,13 @@ DvlStereoMode::DvlStereoMode()
 
 // --------- DESTRUCTOR --------- //
 
-DvlStereoMode::~DvlStereoMode(){
+InertialDvlStereoMode::~InertialDvlStereoMode(){
     pAgent->Shutdown();
 }
 
 // --------- INITIALIZE SLAM --------- //
 
-void DvlStereoMode::InitializeSLAM(){
+void InertialDvlStereoMode::InitializeSLAM(){
 
     // Watchdog, if the paths to vocabular and settings files are still not set (DOUBLECHECK)
     if (vocFilePath == "file_not_set" || settingsFilePath == "file_not_set")
@@ -133,7 +133,7 @@ void DvlStereoMode::InitializeSLAM(){
 
 // --------- STEREO CALLBACK --------- //
 
-void DvlStereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &left_img,
+void InertialDvlStereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &left_img,
                                    const sensor_msgs::msg::Image::ConstSharedPtr &right_img){
 
     // take left image as frame ID 
@@ -167,13 +167,16 @@ void DvlStereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr
 
 // --------- DVL CALLBACK --------- //
 
-void DvlStereoMode::DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg){
+void InertialDvlStereoMode::DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg){
 
 };
 
+// --------- IMU CALLBACK --------- //
+
+
 // ---------- PUBLISHING ON TOPICS ---------- //
 
-void DvlStereoMode::PublishOrbSlamOutput(const Sophus::SE3f& Tcw, 
+void InertialDvlStereoMode::PublishOrbSlamOutput(const Sophus::SE3f& Tcw, 
                                          const sensor_msgs::msg::Image::ConstSharedPtr img_msg,
                                          const cv_bridge::CvImageConstPtr& cv_ptr)
 {
@@ -196,7 +199,7 @@ void DvlStereoMode::PublishOrbSlamOutput(const Sophus::SE3f& Tcw,
     }
 };
 
-void DvlStereoMode::PublishPose(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
+void InertialDvlStereoMode::PublishPose(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
 {
     geometry_msgs::msg::PoseStamped pose_msg;
     pose_msg.header.stamp = header.stamp;
@@ -217,7 +220,7 @@ void DvlStereoMode::PublishPose(const Sophus::SE3f& Twc, const std_msgs::msg::He
     posePub_->publish(pose_msg);
 };
 
-void DvlStereoMode::PublishOdometry(const Sophus::SE3f& Twc, 
+void InertialDvlStereoMode::PublishOdometry(const Sophus::SE3f& Twc, 
                                     const sensor_msgs::msg::Image::ConstSharedPtr img_msg)
 {
     nav_msgs::msg::Odometry odom_msg;
@@ -240,7 +243,7 @@ void DvlStereoMode::PublishOdometry(const Sophus::SE3f& Twc,
     odomPub_->publish(odom_msg);
 };
 
-void DvlStereoMode::PublishPath(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
+void InertialDvlStereoMode::PublishPath(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
 {
     geometry_msgs::msg::PoseStamped pose;
     pose.header.stamp = header.stamp;
@@ -264,7 +267,7 @@ void DvlStereoMode::PublishPath(const Sophus::SE3f& Twc, const std_msgs::msg::He
     pathPub_->publish(path_);
 }
 
-void DvlStereoMode::PublishTF(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::ConstSharedPtr img_msg)
+void InertialDvlStereoMode::PublishTF(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::ConstSharedPtr img_msg)
 {
     geometry_msgs::msg::TransformStamped transform;
     transform.header.stamp = img_msg->header.stamp;

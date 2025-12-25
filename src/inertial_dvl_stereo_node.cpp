@@ -6,7 +6,7 @@ int main(int argc, char **argv){
     rclcpp::init(argc, argv); // Always the first line, initialize this node
     
     // Declare a node object
-    auto node = std::make_shared<DvlStereoMode>(); 
+    auto node = std::make_shared<InertialDvlStereoMode>(); 
     rclcpp::spin(node); // Blocking node
     rclcpp::shutdown();
     return 0;

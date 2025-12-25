@@ -34,12 +34,12 @@
 
 #include "System.h" // Also imports the ORB_SLAM3 namespace
 
-class DvlStereoMode : public rclcpp::Node{
+class InertialDvlStereoMode : public rclcpp::Node{
     
     // Class constructor and descructor
     public:
-        DvlStereoMode();  // Constructor
-        ~DvlStereoMode();  // Destructor
+        InertialDvlStereoMode();  // Constructor
+        ~InertialDvlStereoMode();  // Destructor
     
     private:
 
