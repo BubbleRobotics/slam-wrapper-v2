@@ -1,5 +1,5 @@
 // Import all necessary modules
-#include "ros2_orb_slam3/dvl_stereo.hpp" // equivalent to orbslam3_ros/include/stereo_dvl.hpp
+#include "ros2_orb_slam3/inertial_dvl_stereo.hpp" // equivalent to orbslam3_ros/include/stereo_dvl.hpp
 
 // main
 int main(int argc, char **argv){
