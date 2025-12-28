@@ -15,28 +15,40 @@ DvlStereoMode::DvlStereoMode()
     this->declare_parameter("voc_file", "file_not_set"); // Needs to be overriden with appropriate file path  
     this->declare_parameter("img0_topic", "/camera/left/image_dehazed/raw"); // topic to receive image messages
     this->declare_parameter("img1_topic", "/camera/right/image_dehazed/raw"); // topic to receive image messages
+    this->declare_parameter("imu_topic", "/vectornav/Imu_raw");
     this->declare_parameter("dvl_topic", "/dvl/data");  // topic DVL messages
     this->declare_parameter("is_dvlused", false); // switch for inertial and non-inertial mode
+    this->declare_parameter("is_inertial", false);
     this->declare_parameter("enable_debug_window", true); // Enable debug window showing SLAM in pangolin/opencv
-    this->declare_parameter<bool>("publish_tf", true);  
-    
+    this->declare_parameter("publish_tf", true);
+    this->declare_parameter("manual_time_sync", false);
+    this->declare_parameter("imu_from_yaml", false);
+
     // Put parameter values into member variables too
-    rclcpp::Parameter vocFilePathParam = this->get_parameter("voc_file");
-    vocFilePath = vocFilePathParam.as_string();
     rclcpp::Parameter settingsFilePathParam = this->get_parameter("settings_file");
     settingsFilePath = settingsFilePathParam.as_string();
+    rclcpp::Parameter vocFilePathParam = this->get_parameter("voc_file");
+    vocFilePath = vocFilePathParam.as_string();
     rclcpp::Parameter img0TopicParam = this->get_parameter("img0_topic");
     img0Topic = img0TopicParam.as_string();
     rclcpp::Parameter img1TopicParam = this->get_parameter("img1_topic");
     img1Topic = img1TopicParam.as_string();
+    rclcpp::Parameter imuTopicParam = this->get_parameter("imu_topic");
+    imuTopic = imuTopicParam.as_string();
+    rclcpp::Parameter dvlTopicParam = this->get_parameter("dvl_topic");
+    dvlTopic = dvlTopicParam.as_string();
     rclcpp::Parameter isDVLParam = this->get_parameter("is_dvlused");
     isDVLUsed = isDVLParam.as_bool();
+    rclcpp::Parameter isIMUParam = this->get_parameter("is_inertial");
+    isIMUUsed = isIMUParam.as_bool();
     rclcpp::Parameter enableDebugWindowParam = this->get_parameter("enable_debug_window");
     enableDebugWindow = enableDebugWindowParam.as_bool();
     rclcpp::Parameter publishTfParam = this->get_parameter("publish_tf");
     publishTf_ = publishTfParam.as_bool();
-    rclcpp::Parameter dvlTopicParam = this->get_parameter("dvl_topic");
-    dvlTopic = dvlTopicParam.as_string();
+    rclcpp::Parameter manualTimeSyncParam = this->get_parameter("manual_time_sync");
+    manualTimeSync_ = manualTimeSyncParam.as_bool();
+    rclcpp::Parameter imuFromYamlParam = this->get_parameter("imu_from_yaml");
+    imuFromYaml_ = imuFromYamlParam.as_bool();
 
     // Debug print: confirming parameter values
     RCLCPP_INFO(this->get_logger(), "voc_file: %s", vocFilePath.c_str());
@@ -44,7 +56,7 @@ DvlStereoMode::DvlStereoMode()
     RCLCPP_INFO(this->get_logger(), "img0_topic: %s", img0Topic.c_str());
     RCLCPP_INFO(this->get_logger(), "img1_topic: %s", img1Topic.c_str());
     RCLCPP_INFO(this->get_logger(), "dvl_topic: %s", dvlTopic.c_str());
-    RCLCPP_INFO(this->get_logger(), "is_dvlused %b", isDVLUsed);
+    RCLCPP_INFO(this->get_logger(), "imu_topic: %s", imuTopic.c_str());
 
     // ---- SUBSCRIBERS ---- //
 
@@ -67,6 +79,11 @@ DvlStereoMode::DvlStereoMode()
     if (isDVLUsed)
     {
         dvlSub_ = this->create_subscription<dvl_msgs::msg::DVL>(dvlTopic, rclcpp::SensorDataQoS(), std::bind(&DvlStereoMode::DvlCallback, this, std::placeholders::_1));
+    }
+
+    if (isIMUUsed)
+    {
+        imuSub_ = this->create_subscription<sensor_msgs::msg::Imu>(imuTopic, rclcpp::SensorDataQoS(), std::bind(&DvlStereoMode::ImuCallback, this, std::placeholders::_1));
     }
 
     // ---- PUBLISHERS ---- //
@@ -109,10 +126,15 @@ void DvlStereoMode::InitializeVSLAM(){
         rclcpp::shutdown();
     } 
 
-    if (isDVLUsed)
+    if (isDVLUsed && isIMUUsed)
     {
-        RCLCPP_INFO(this->get_logger(), "Setting to DVL-stereo mode");
-        sensorType = ORB_SLAM3::System::DVL_STEREO;
+        RCLCPP_INFO(this->get_logger(), "Setting to inertial DVL-IMU-Stereo mode");
+        sensorType = ORB_SLAM3::System::DVL_IMU_STEREO;
+    }
+    else if (isIMUUsed)
+    {
+        RCLCPP_INFO(this->get_logger(), "Setting to IMU-stereo mode");
+        sensorType = ORB_SLAM3::System::IMU_STEREO;
     }
     else
     {
@@ -130,6 +152,49 @@ void DvlStereoMode::InitializeVSLAM(){
     pAgent = new ORB_SLAM3::System(vocFilePath, settingsFilePath, sensorType, enablePangolinWindow);
     RCLCPP_INFO(this->get_logger(), "ORB-SLAM3 Stereo Node initialized");
 };
+
+bool StereoMode::InitImuCamTransform()
+{
+    // check if frame IDs are set
+    if (cameraFrameId_ == "" || imuFrameId_ == "")
+    {
+        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+            "Camera or IMU frame ID is empty, cannot lookup transform");
+        RCLCPP_INFO(this->get_logger(), "cameraFrameId_: %s", cameraFrameId_.c_str());
+        RCLCPP_INFO(this->get_logger(), "imuFrameId_: %s", imuFrameId_.c_str());
+        return false;
+    }
+
+    // check if transform is already set
+    if (transformImuCam.header.frame_id == cameraFrameId_ &&
+        transformImuCam.child_frame_id == imuFrameId_)
+    {
+        return true;
+    }
+
+    try {
+        transformImuCam = tf_buffer_.lookupTransform(
+                cameraFrameId_, 
+                imuFrameId_,
+                tf2::TimePointZero);  // Get latest available transform
+        RCLCPP_INFO(this->get_logger(), "Successfully looked up transform between IMU and Camera frames");
+        RCLCPP_INFO(this->get_logger(), "cameraFrameId_: %s", cameraFrameId_.c_str());
+        RCLCPP_INFO(this->get_logger(), "imuFrameId_: %s", imuFrameId_.c_str());
+        RCLCPP_INFO(this->get_logger(), "transform: %f", transformImuCam.transform.translation.x);
+        RCLCPP_INFO(this->get_logger(), "transform: %f", transformImuCam.transform.translation.y);
+        RCLCPP_INFO(this->get_logger(), "transform: %f", transformImuCam.transform.translation.z);
+        RCLCPP_INFO(this->get_logger(), "transform: %f", transformImuCam.transform.rotation.x);
+        RCLCPP_INFO(this->get_logger(), "transform: %f", transformImuCam.transform.rotation.y);
+        RCLCPP_INFO(this->get_logger(), "transform: %f", transformImuCam.transform.rotation.z);
+
+        return true;
+            
+    } catch (tf2::TransformException &ex) {
+        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+            "Could not transform IMU to Camera frame: %s", ex.what());
+        return false;
+    }
+}
 
 // --------- STEREO CALLBACK --------- //
 

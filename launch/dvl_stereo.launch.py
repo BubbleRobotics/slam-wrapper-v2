@@ -29,10 +29,14 @@ def generate_launch_description():
                 {'voc_file': package_dir + '/orb_slam3/Vocabulary/ORBvoc.txt.bin'},
                 {'img0_topic': '/camera_d455/ir_left/image_raw'},
                 {'img1_topic': '/camera_d455/ir_right/image_raw'},
+                {'imu_topic': '/vectornav/Imu_raw'},
                 {'dvl_topic': '/dvl/twist_data_synced'},
                 {'is_dvlused': False},
+                {'is_inertial': False},
                 {'enable_debug_window': True},
                 {'publish_tf': True},
+                {'manual_time_sync': False},
+                {'imu_from_yaml': False},
             ]
     )
 

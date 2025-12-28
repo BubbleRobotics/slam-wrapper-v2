@@ -58,11 +58,15 @@ class DvlStereoMode : public rclcpp::Node{
         std::string img0Topic;
         std::string img1Topic;
         std::string dvlTopic;
+        std::string imuTopic;
 
         // Node parameters: bools
         bool isDVLUsed;
         bool enableDebugWindow;
         bool publishTf_;
+        bool isIMUUsed;
+        bool imuFromYaml_;
+        bool manualTimeSync_;
 
         // Subscribers
         std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> img0Sub_;
@@ -71,6 +75,7 @@ class DvlStereoMode : public rclcpp::Node{
         typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::msg::Image, sensor_msgs::msg::Image> ImgSyncPolicy;
         std::shared_ptr<message_filters::Synchronizer<ImgSyncPolicy>> sync_;
         rclcpp::Subscription<dvl_msgs::msg::DVL>::SharedPtr dvlSub_;
+        rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imuSub_;
 
         // Publishers
         std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
@@ -92,6 +97,7 @@ class DvlStereoMode : public rclcpp::Node{
 
         // Stereo Callback
         std::string cameraFrameId_ = "";
+        std::string imuFrameId_ = "";
 
         // Path: keeps track of poses
         nav_msgs::msg::Path path_;
