@@ -20,19 +20,21 @@ def generate_launch_description():
     # Create nodes
     dvl_stereo_node: Node = Node(
             package='ros2_orb_slam3',
-            executable='dvl_stereo_node_cpp',
-            name='dvl_stereo_node',
-            namespace='ORB_SLAM3',
+            executable='inertial_dvl_stereo_node_cpp',
+            name='inertial_dvl_stereo_node',
+            namespace='AQUA_SLAM',
             output='screen',
             parameters=[
                 {'settings_file': package_dir + '/orb_slam3/config/Stereo/Gazebo.yaml'},
                 {'voc_file': package_dir + '/orb_slam3/Vocabulary/ORBvoc.txt.bin'},
                 {'img0_topic': '/camera_d455/ir_left/image_raw'},
                 {'img1_topic': '/camera_d455/ir_right/image_raw'},
+                {'imu_topic': '/vectornav/Imu_raw'},
                 {'dvl_topic': '/dvl/twist_data_synced'},
-                {'is_dvlused': True},
                 {'enable_debug_window': True},
                 {'publish_tf': True},
+                {'manual_time_sync': False},
+                {'imu_from_yaml': False},
             ]
     )
 

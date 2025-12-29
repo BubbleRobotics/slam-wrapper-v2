@@ -4,8 +4,22 @@
 
 // ---- STANDARD ---- //
 
+// C++ includes
+#include <iostream> // The iostream library is an object-oriented library that provides input and output functionality using streams
+#include <algorithm> // The header <algorithm> defines a collection of functions especially designed to be used on ranges of elements.
+#include <fstream> // Input/output stream class to operate on files.
+#include <chrono> // c++ timekeeper library
+#include <vector> // vectors are sequence containers representing arrays that can change in size.
+#include <queue>
+#include <thread> // class to represent individual threads of execution.
+#include <mutex> // A mutex is a lockable object that is designed to signal when critical sections of code need exclusive access, preventing other threads with the same protection from executing concurrently and access the same memory locations.
+#include <cstdlib> // to find home directory
+#include <filesystem> // to detect if paths are existent or not
+#include <stdexcept> // to throw exceptions during building
+
 // Manipulating strings
 #include <cstring>
+#include <sstream> // String stream processing functionalities
 
 // ---- ROS ---- //
 
@@ -13,11 +27,20 @@
 #include "rclcpp/rclcpp.hpp"
 
 // Message types
+#include <std_msgs/msg/header.hpp>
+#include "std_msgs/msg/float64.hpp"
+#include <std_msgs/msg/string.hpp>
+#include <std_msgs/msg/bool.hpp>
 #include "sensor_msgs/msg/image.hpp"
+#include "sensor_msgs/msg/imu.hpp"
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <dvl_msgs/msg/dvl.hpp>
 
 // Synchronised subscribers
@@ -57,20 +80,23 @@ class InertialDvlStereoMode : public rclcpp::Node{
         std::string settingsFilePath;
         std::string img0Topic;
         std::string img1Topic;
+        std::string imuTopic;
         std::string dvlTopic;
 
         // Node parameters: bools
-        bool isDVLUsed;
-        bool enableDebugWindow;
-        bool publishTf_;
+        bool manualTimeSync = false;
+        bool imuFromYaml = false;
+        bool enableDebugWindow = false;
+        bool publishTf_ = true;
 
         // Subscribers
         std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> img0Sub_;
         std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> img1Sub_;
-
         typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::msg::Image, sensor_msgs::msg::Image> ImgSyncPolicy;
         std::shared_ptr<message_filters::Synchronizer<ImgSyncPolicy>> sync_;
+
         rclcpp::Subscription<dvl_msgs::msg::DVL>::SharedPtr dvlSub_;
+        rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imuSub_;
 
         // Publishers
         std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
@@ -79,22 +105,26 @@ class InertialDvlStereoMode : public rclcpp::Node{
         rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pathPub_;
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr trackingImagePub_;
         
-        std::string worldFrameId_ = "mapOrb";
-        std::string cameraFrameOrbId = "cameraOrb";
 
         // ---- PIPELINE ---- //
 
         // InitializeSLAM
         ORB_SLAM3::System::eSensor sensorType;
-        bool enablePangolinWindow = false; // Shows Pangolin window output
-        bool enableOpenCVWindow = false; // Shows OpenCV window output
         ORB_SLAM3::System* pAgent;  // Pointer to ORB SLAM3 object
 
-        // Stereo Callback
+        // Frame Definitions
+        std::string worldFrameOrbId_ = "mapOrb";
+        std::string cameraFrameOrbId_ = "cameraOrb";
         std::string cameraFrameId_ = "";
+        std::string imuFrameId_ = "";
 
         // Path: keeps track of poses
         nav_msgs::msg::Path path_;
+
+        // frame transform vars
+        tf2_ros::Buffer tf_buffer_;
+        tf2_ros::TransformListener tf_listener_;
+        geometry_msgs::msg::TransformStamped transformImuCam;
 
         /*    _____                 _   _                  
              |  ___|   _ _ __   ___| |_(_) ___  _ __  ___  
@@ -102,13 +132,14 @@ class InertialDvlStereoMode : public rclcpp::Node{
              |  _|| |_| | | | | (__| |_| | (_) | | | \__ \ 
              |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/ 
         */
-
-        void StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr& img0,
-                            const sensor_msgs::msg::Image::ConstSharedPtr& img1);
-
-        void DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg);
-
         void InitializeSLAM();
+        bool InitImuCamTransform();
+
+        void StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &left_img,
+                            const sensor_msgs::msg::Image::ConstSharedPtr &right_img);
+        void DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg);
+        void ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg); 
+
 
         // ---- ROS ---- //
         
@@ -123,6 +154,8 @@ class InertialDvlStereoMode : public rclcpp::Node{
         void PublishPath(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
         
         void PublishTF(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::ConstSharedPtr img_msg);
+
+        void PublishTrackingImage(const cv::Mat& image, const sensor_msgs::msg::Image::ConstSharedPtr img_msg);
 };
 
 #endif
