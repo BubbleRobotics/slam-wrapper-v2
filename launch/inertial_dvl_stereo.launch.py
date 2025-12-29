@@ -18,7 +18,7 @@ def generate_launch_description():
         "ros2_orb_slam3")
 
     # Create nodes
-    dvl_stereo_node: Node = Node(
+    inertial_dvl_stereo_node: Node = Node(
             package='ros2_orb_slam3',
             executable='inertial_dvl_stereo_node_cpp',
             name='inertial_dvl_stereo_node',
@@ -39,6 +39,6 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        dvl_stereo_node,
+        inertial_dvl_stereo_node,
     ])
 
