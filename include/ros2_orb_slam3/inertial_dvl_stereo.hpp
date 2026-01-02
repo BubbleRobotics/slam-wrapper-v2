@@ -34,13 +34,13 @@
 #include "sensor_msgs/msg/image.hpp"
 #include "sensor_msgs/msg/imu.hpp"
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <dvl_msgs/msg/dvl.hpp>
 
 // Synchronised subscribers
@@ -76,18 +76,18 @@ class InertialDvlStereoMode : public rclcpp::Node{
         // ---- ROS ---- //
 
         // Node paramters: strings
-        std::string vocFilePath;
         std::string settingsFilePath;
+        std::string vocFilePath;
         std::string img0Topic;
         std::string img1Topic;
         std::string imuTopic;
         std::string dvlTopic;
 
         // Node parameters: bools
-        bool manualTimeSync = false;
-        bool imuFromYaml = false;
         bool enableDebugWindow = false;
         bool publishTf_ = true;
+        bool manualTimeSync = false;
+        bool imuFromYaml = false;
 
         // Subscribers
         std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> img0Sub_;
@@ -99,11 +99,11 @@ class InertialDvlStereoMode : public rclcpp::Node{
         rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imuSub_;
 
         // Publishers
-        std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
         rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr posePub_;
         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odomPub_;
         rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pathPub_;
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr trackingImagePub_;
+        std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
         
 
         // ---- PIPELINE ---- //
@@ -149,7 +149,7 @@ class InertialDvlStereoMode : public rclcpp::Node{
 
         void PublishPose(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
 
-        void PublishOdometry(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::ConstSharedPtr img_msg);
+        void PublishOdometry(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
 
         void PublishPath(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header);
         

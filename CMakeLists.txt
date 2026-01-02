@@ -29,7 +29,6 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
-find_package(cv_bridge REQUIRED)
 find_package(dvl_msgs REQUIRED)
 
 
@@ -176,12 +175,6 @@ add_executable(stereo_node_cpp
   src/stereo.cpp
 )
 
-# Add executable (DVL Stereo VSLAM node)
-add_executable(dvl_stereo_node_cpp
-  src/dvl_stereo_node.cpp
-  src/dvl_stereo.cpp
-)
-
 # Add executable (DVL Inertial Stereo VSLAM node)
 add_executable(inertial_dvl_stereo_node_cpp
   src/inertial_dvl_stereo_node.cpp
@@ -194,16 +187,12 @@ ament_target_dependencies(mono_node_cpp
 ament_target_dependencies(stereo_node_cpp
   PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
-ament_target_dependencies(dvl_stereo_node_cpp
-  PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS}
-)
 ament_target_dependencies(inertial_dvl_stereo_node_cpp
   PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
 
 target_link_libraries(mono_node_cpp PUBLIC orb_slam3_lib) # Link a node with the internal shared library
 target_link_libraries(stereo_node_cpp PUBLIC orb_slam3_lib) # Link a node with the internal shared library
-target_link_libraries(dvl_stereo_node_cpp PUBLIC orb_slam3_lib) # Link node with the internal shared library
 target_link_libraries(inertial_dvl_stereo_node_cpp PUBLIC orb_slam3_lib) # Link node with the internal shared library
 
 # Install all the header files in package/package/include
@@ -225,7 +214,7 @@ install(DIRECTORY orb_slam3/Vocabulary
 )
 
 # Install our node and library
-install(TARGETS mono_node_cpp stereo_node_cpp dvl_stereo_node_cpp inertial_dvl_stereo_node_cpp orb_slam3_lib
+install(TARGETS mono_node_cpp stereo_node_cpp inertial_dvl_stereo_node_cpp orb_slam3_lib
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}

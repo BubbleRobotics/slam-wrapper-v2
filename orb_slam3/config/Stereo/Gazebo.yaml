@@ -6,21 +6,46 @@
 File.version: "1.0"
 
 # General Camera Parameters
-Camera.type: "Rectified"
+Camera.type: "PinHole"
 Camera.width: 640
 Camera.height: 480
-Camera.fps: 15
+Camera.fps: 30
 Camera.RGB: 1
 
 # Left Camera calibration parameters (since camera type is rectified, the parameters are same for camera2)
 Camera1.fx: 389.013427734375
-Camera1.fy: 323.04339599609375
-Camera1.cx: 389.013427734375
+Camera1.fy: 389.013427734375
+Camera1.cx: 323.04339599609375
 Camera1.cy: 244.42019653320312
+
+Camera1.k1: 0.0
+Camera1.k2: 0.0
+Camera1.p1: 0.0
+Camera1.p2: 0.0
+
+# Right Camera calibration parameters
+Camera2.fx: 389.013427734375
+Camera2.fy: 389.013427734375
+Camera2.cx: 323.04339599609375
+Camera2.cy: 244.42019653320312
+
+Camera2.k1: 0.0
+Camera2.k2: 0.0
+Camera2.p1: 0.0
+Camera2.p2: 0.0
 
 # Stereo parameters
 Stereo.ThDepth: 15.0 # TODO : Find out if this needs to be tuned
 Stereo.b: 0.095
+
+Stereo.T_c1_c2: !!opencv-matrix
+  rows: 4
+  cols: 4
+  dt: f
+  data: [1.0, 0.0, 0.0, 0.095,
+         0.0, 1.0, 0.0, 0.0,
+         0.0, 0.0, 1.0, 0.0,
+         0.0, 0.0, 0.0, 1.0]
 
 # Do not insert KFs when recently lost
 IMU.InsertKFsWhenLost: 0
@@ -46,19 +71,19 @@ IMU.Frequency: 200.0
 #--------------------------------------------------------------------------------------------
 
 # ORB Extractor: Number of features per image also needs to be tuned manually
-ORBextractor.nFeatures: 1000
+ORBextractor.nFeatures: 1200
 
 # ORB Extractor: Scale factor between levels in the scale pyramid
 ORBextractor.scaleFactor: 1.2
 
 # ORB Extractor: Number of levels in the scale pyramid
-ORBextractor.nLevels: 4
+ORBextractor.nLevels: 8
 
 # ORB Extractor: Fast threshold
 # Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.
 # Firstly we impose iniThFAST. If no corners are detected we impose a lower value minThFAST
 # You can lower these values if your images have low contrast
-ORBextractor.iniThFAST: 15
+ORBextractor.iniThFAST: 20
 ORBextractor.minThFAST: 7
 
 #--------------------------------------------------------------------------------------------
@@ -74,3 +99,4 @@ Viewer.ViewpointX: 0.0
 Viewer.ViewpointY: -0.7
 Viewer.ViewpointZ: -1.8
 Viewer.ViewpointF: 500.0
+Viewer.imageViewScale: 1.0

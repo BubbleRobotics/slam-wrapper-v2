@@ -1,13 +1,13 @@
-#include "ros2_orb_slam3/inertial_dvl_stereo.hpp" // equivalent to orbslam3_ros/include/stereo_dvl.hpp
+#include "ros2_orb_slam3/inertial_dvl_stereo.hpp" 
 
 // -------- CONSTRUCTOR -------- //
 
-InertialDvlStereoMode::InertialDvlStereoMode() :Node("dvl_stereo_node"), tf_buffer_(this->get_clock()),
+InertialDvlStereoMode::InertialDvlStereoMode() :Node("inertial_dvl_stereo_node"), tf_buffer_(this->get_clock()),
      tf_listener_(tf_buffer_)
 {
     // ---- NODE PARAMETERS ---- //
-    RCLCPP_INFO(this->get_logger(), "\nORB-SLAM3 (dvl-stereo-inertial) NODE STARTED");
-    
+    RCLCPP_INFO(this->get_logger(), "\nAQUA-SLAM (inertial-dvl-stereo) NODE STARTED");
+
     // Declare the node parameters
     this->declare_parameter("settings_file", "file_not_set"); // path to settings file  
     this->declare_parameter("voc_file", "file_not_set"); // Needs to be overriden with appropriate file path  
@@ -114,7 +114,8 @@ void InertialDvlStereoMode::InitializeSLAM()
     if (img0Topic != "" && img1Topic != "" && imuTopic != "" && dvlTopic != "")
     {
         RCLCPP_INFO(this->get_logger(), "Setting to Stereo-DVL-IMU mode");
-        sensorType = ORB_SLAM3::System::IMU_STEREO; // change this to DVL STEREO
+        sensorType = ORB_SLAM3::System::IMU_STEREO; 
+        //sensorType = ORB_SLAM3::System::IMU_DVL_STEREO;
     }
     else
     {
@@ -124,7 +125,7 @@ void InertialDvlStereoMode::InitializeSLAM()
 
     // Initializing System object:
     pAgent = new ORB_SLAM3::System(vocFilePath, settingsFilePath, sensorType, enableDebugWindow);
-    RCLCPP_INFO(this->get_logger(), "ORB-SLAM3 Stereo-DVL-IMU Node initialized");
+    RCLCPP_INFO(this->get_logger(), "AQUA-SLAM (inertial-dvl-stereo) Node initialized");
 }
 
 // --------- INITIALIZING TRANSFORM ----------- //
@@ -305,7 +306,7 @@ void InertialDvlStereoMode::PublishOrbSlamOutput(const Sophus::SE3f& Tcw,
     PublishPose(Twc, img_msg->header);
     
     // Publish odometry
-    PublishOdometry(Twc, img_msg);
+    PublishOdometry(Twc, img_msg->header);
 
     // Publish path
     PublishPath(Twc, img_msg->header);
@@ -341,10 +342,10 @@ void InertialDvlStereoMode::PublishPose(const Sophus::SE3f& Twc, const std_msgs:
     posePub_->publish(pose_msg);
 }
 
-void InertialDvlStereoMode::PublishOdometry(const Sophus::SE3f& Twc, const sensor_msgs::msg::Image::ConstSharedPtr img_msg)
+void InertialDvlStereoMode::PublishOdometry(const Sophus::SE3f& Twc, const std_msgs::msg::Header& header)
 {
     nav_msgs::msg::Odometry odom_msg;
-    odom_msg.header.stamp = img_msg->header.stamp;
+    odom_msg.header.stamp = header.stamp;
     odom_msg.header.frame_id = worldFrameOrbId_;
     odom_msg.child_frame_id = cameraFrameOrbId_;
     
