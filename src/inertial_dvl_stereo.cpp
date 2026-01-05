@@ -217,12 +217,36 @@ void InertialDvlStereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstS
 void InertialDvlStereoMode::DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg)
 {
   // TODO: Implement DVL callback
-  return;
+  // we can use the covariance matrix and the validity bool to decide wether we put the data in the queue
+  double t = msg->header.stamp.sec + msg->header.stamp.nanosec * 1e-9;
+  RCLCPP_INFO(this->get_logger(), "DVL Data:");
+  RCLCPP_INFO(this->get_logger(), "  Time: %.6f", t);
+  RCLCPP_INFO(this->get_logger(), "  Velocity Valid: %s", msg->velocity_valid ? "true" : "false");
+  RCLCPP_INFO(this->get_logger(), "  Velocity [m/s]: [%.4f, %.4f, %.4f]",
+              msg->velocity.x,
+              msg->velocity.y,
+              msg->velocity.z);
+  RCLCPP_INFO(this->get_logger(), "  Altitude [m]: %.3f",
+              msg->altitude);
+
+  const auto & cov = msg->covariance;
+
+  if (cov.size() == 9)
+  {
+    RCLCPP_INFO(this->get_logger(), "  Covariance matrix (m/s)^2:");
+    RCLCPP_INFO(this->get_logger(), "    [%.6e %.6e %.6e]", cov[0], cov[1], cov[2]);
+    RCLCPP_INFO(this->get_logger(), "    [%.6e %.6e %.6e]", cov[3], cov[4], cov[5]);
+    RCLCPP_INFO(this->get_logger(), "    [%.6e %.6e %.6e]", cov[6], cov[7], cov[8]);
+  }
+  else
+  {
+    RCLCPP_WARN(this->get_logger(), "  Covariance size is %zu (expected 9)", cov.size());
+  }
 }
 
 // --------- IMU CALLBACK --------- //
 
-void InertialDvlStereoMode::ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
+void InertialDvlStereoMode::ImuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr &imu_msg)
 {   
     // Buffer IMU measurements
     double t = imu_msg->header.stamp.sec + imu_msg->header.stamp.nanosec * 1e-9;

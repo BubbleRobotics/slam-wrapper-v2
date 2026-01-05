@@ -30,7 +30,7 @@ def generate_launch_description():
                 {'img0_topic': '/camera_d455/ir_left/image_raw'},
                 {'img1_topic': '/camera_d455/ir_right/image_raw'},
                 {'imu_topic': '/vectornav/Imu_raw'},
-                {'dvl_topic': '/dvl/twist_data_synced'},
+                {'dvl_topic': '/dvl/twist_data'}, 
                 {'enable_debug_window': True},
                 {'publish_tf': True},
                 {'manual_time_sync': False},

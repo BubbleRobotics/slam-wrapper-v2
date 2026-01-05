@@ -138,7 +138,7 @@ class InertialDvlStereoMode : public rclcpp::Node{
         void StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &left_img,
                             const sensor_msgs::msg::Image::ConstSharedPtr &right_img);
         void DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg);
-        void ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg); 
+        void ImuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr &imu_msg); 
 
 
         // ---- ROS ---- //
