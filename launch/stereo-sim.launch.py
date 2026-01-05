@@ -2,7 +2,7 @@
  # @ Create Time: 2025-11-10 17:00:00
  # @ Modified by: Diego Hernandez
  # @ Modified time: 2025-11-10 17:00:00
- # @ Description: Launch file for Monocular SLAM Wrapper with Realsense D555 Camera
+ # @ Description: Launch file for Stereo/Stereo-Inertial SLAM Wrapper for Gazebo Simulation
  '''
 
 from launch import LaunchDescription

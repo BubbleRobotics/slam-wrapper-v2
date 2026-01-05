@@ -2,7 +2,7 @@
  # @ Create Time: 2025-11-03 10:14:15
  # @ Modified by: Paul Joseph
  # @ Modified time: 2025-11-03 12:22:08
- # @ Description: Launch file for Monocular-Inertial SLAM Wrapper with Realsense D455 Camera
+ # @ Description: Launch file for Monocular/Monocular-Inertial SLAM Wrapper for Gazebo Simulation
  '''
 
 from launch import LaunchDescription
