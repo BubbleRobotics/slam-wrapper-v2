@@ -164,6 +164,8 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     vdNewKF_ms.clear();
     vdTrackTotal_ms.clear();
 #endif
+    //initialize covariance matrix
+    mCurrentPoseCovariance.setZero();
 }
 
 #ifdef REGISTER_TIMES
@@ -2782,6 +2784,7 @@ bool Tracking::TrackReferenceKeyFrame()
 
     // cout << " TrackReferenceKeyFrame mLastFrame.mTcw:  " << mLastFrame.mTcw << endl;
     Optimizer::PoseOptimization(&mCurrentFrame);
+    UpdatePoseCovariance();
 
     // Discard outliers
     int nmatchesMap = 0;
@@ -2946,6 +2949,7 @@ bool Tracking::TrackWithMotionModel()
 
     // Optimize frame pose with all matches
     Optimizer::PoseOptimization(&mCurrentFrame);
+    UpdatePoseCovariance();
 
     // Discard outliers
     int nmatchesMap = 0;
@@ -3006,14 +3010,17 @@ bool Tracking::TrackLocalMap()
         }
 
     int inliers;
-    if (!mpAtlas->isImuInitialized())
+    if (!mpAtlas->isImuInitialized()) {
         Optimizer::PoseOptimization(&mCurrentFrame);
+        UpdatePoseCovariance();
+    }
     else
     {
         if(mCurrentFrame.mnId<=mnLastRelocFrameId+mnFramesToResetIMU)
         {
             Verbose::PrintMess("TLM: PoseOptimization ", Verbose::VERBOSITY_DEBUG);
             Optimizer::PoseOptimization(&mCurrentFrame);
+            UpdatePoseCovariance();
         }
         else
         {
@@ -3751,6 +3758,7 @@ bool Tracking::Relocalization()
                 }
 
                 int nGood = Optimizer::PoseOptimization(&mCurrentFrame);
+                UpdatePoseCovariance();
 
                 if(nGood<10)
                     continue;
@@ -3767,6 +3775,7 @@ bool Tracking::Relocalization()
                     if(nadditional+nGood>=50)
                     {
                         nGood = Optimizer::PoseOptimization(&mCurrentFrame);
+                        UpdatePoseCovariance();
 
                         // If many inliers but still not enough, search by projection again in a narrower window
                         // the camera has been already optimized with many points
@@ -3782,6 +3791,7 @@ bool Tracking::Relocalization()
                             if(nGood+nadditional>=50)
                             {
                                 nGood = Optimizer::PoseOptimization(&mCurrentFrame);
+                                UpdatePoseCovariance();
 
                                 for(int io =0; io<mCurrentFrame.N; io++)
                                     if(mCurrentFrame.mvbOutlier[io])
@@ -4088,6 +4098,64 @@ void Tracking::UpdateFrameIMU(const float s, const IMU::Bias &b, KeyFrame* pCurr
 
     mnFirstImuFrameId = mCurrentFrame.mnId;
 }
+
+void Tracking::UpdatePoseCovariance()
+{
+    // 1. Count inliers
+    int inliers = 0;
+    for (int i = 0; i < mCurrentFrame.N; ++i)
+    {
+        if (mCurrentFrame.mvpMapPoints[i] && !mCurrentFrame.mvbOutlier[i])
+            ++inliers;
+    }
+
+    // 2. Base variance from inliers (bounded)
+    const float min_inliers = 20.0f;    // To be tuned
+    const float max_inliers = 1500.0f;  // To be tuned
+
+    float clamped_inliers = std::min(std::max((float)inliers, min_inliers), max_inliers);
+
+    // Position and angle base variances
+    // Can also see better ways to do this
+    float pos_var = 0.05f / std::sqrt(clamped_inliers);  // meters^2
+    float ang_var = 0.01f / std::sqrt(clamped_inliers);  // rad^2
+
+    // Lower bounds (never overconfident)
+    pos_var = std::max(pos_var, 1e-4f); // To be tuned
+    ang_var = std::max(ang_var, 1e-5f); // To be tuned
+
+    // 3. Scale based on tracking state
+    float state_scale = 1.0f;
+
+    switch (mState)
+    {
+        case Tracking::OK:
+            state_scale = 1.0f;
+            break;
+
+        case Tracking::RECENTLY_LOST:
+            state_scale = 10.0f;
+            break;
+
+        case Tracking::LOST:
+            state_scale = 100.0f;
+            break;
+
+        case Tracking::NOT_INITIALIZED:
+        default:
+            state_scale = 1000.0f;
+            break;
+    }
+
+    pos_var *= state_scale;
+    ang_var *= state_scale;
+
+    // 4. Build covariance matrix
+    mCurrentPoseCovariance.setZero();
+    mCurrentPoseCovariance.block<3,3>(0,0) = Eigen::Matrix3f::Identity() * pos_var;
+    mCurrentPoseCovariance.block<3,3>(3,3) = Eigen::Matrix3f::Identity() * ang_var;
+}
+
 
 void Tracking::NewDataset()
 {

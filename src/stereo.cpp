@@ -230,7 +230,14 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
 
     // T_orbcam2orbw: points in camera frame to orb world frame
     // T_orbw2orbcam: points in orb world frame to camera frame
-    Sophus::SE3f T_orbcam2orbw = pAgent->TrackStereo(left_cv_ptr->image, right_cv_ptr->image, t);
+    // New Implementation that also returns a covariance matrix
+    std::pair<Sophus::SE3f, Eigen::Matrix<float, 6, 6>> result = pAgent->TrackWithCovariance(left_cv_ptr->image, right_cv_ptr->image, t);
+    Sophus::SE3f T_orbcam2orbw = result.first;
+    Eigen::Matrix<float, 6, 6> covariance = result.second;
+
+    //Normal Implementation that does not return the covariance matrix
+    //Sophus::SE3f T_orbcam2orbw = pAgent->TrackStereo(left_cv_ptr->image, right_cv_ptr->image, t);
+    
     Sophus::SE3f T_orbw2orbcam = T_orbcam2orbw.inverse();
 
     if (!has_initial_alignment_)
@@ -277,9 +284,9 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
     }
 
     // check if it was successful and publish data
-    if(pAgent->GetTrackingState() == ORB_SLAM3::Tracking::OK)
+    if(pAgent->GetTrackingState() == ORB_SLAM3::Tracking::OK || pAgent->GetTrackingState() == ORB_SLAM3::Tracking::RECENTLY_LOST)
     {
-        PublishOrbSlamOutput(T_orbw2orbcam, left_img, left_cv_ptr);
+        PublishOrbSlamOutput(T_orbw2orbcam, covariance, left_img, left_cv_ptr);
     }
     else
     {
@@ -360,6 +367,7 @@ void StereoMode::ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
 }
 
 void StereoMode::PublishOrbSlamOutput(const Sophus::SE3f& T_orbw2orbcam, 
+                                      const Eigen::Matrix<float, 6, 6>& covariance,
                                       const sensor_msgs::msg::Image::ConstSharedPtr img_msg,
                                       const cv_bridge::CvImageConstPtr& cv_ptr)
 {
@@ -377,7 +385,7 @@ void StereoMode::PublishOrbSlamOutput(const Sophus::SE3f& T_orbw2orbcam,
     PublishPose(T_orbw2orbcam, img_msg->header);
 
     // Publish odometry
-    PublishOdometry(T_orbcam2gzbw, img_msg->header);
+    PublishOdometry(T_orbcam2gzbw, covariance, img_msg->header);
 
     // Publish path
     PublishPath(T_orbcam2gzbw, img_msg->header);
@@ -421,7 +429,7 @@ void StereoMode::PublishPose(const Sophus::SE3f& T_orbw2orbcam, const std_msgs::
     posePub_->publish(pose_msg);
 }
 
-void StereoMode::PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const std_msgs::msg::Header& header)
+void StereoMode::PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const Eigen::Matrix<float, 6, 6>& covariance, const std_msgs::msg::Header& header)
 {
     nav_msgs::msg::Odometry odom_msg;
     odom_msg.header.stamp = header.stamp;
@@ -439,6 +447,14 @@ void StereoMode::PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const std_ms
     odom_msg.pose.pose.orientation.y = q.y();
     odom_msg.pose.pose.orientation.z = q.z();
     odom_msg.pose.pose.orientation.w = q.w();
+
+    for (int r = 0; r < 6; ++r)
+    {
+        for (int c = 0; c < 6; ++c)
+        {
+            odom_msg.pose.covariance[r * 6 + c] = static_cast<double>(covariance(r, c));
+        }
+    }
     
     odomPub_->publish(odom_msg);
     

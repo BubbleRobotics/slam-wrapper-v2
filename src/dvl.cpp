@@ -96,6 +96,18 @@ void DVLMode::OdomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr &msg)
                     msg->pose.pose.orientation.y,
                     msg->pose.pose.orientation.z,
                     msg->pose.pose.orientation.w);
+        const auto &cov = msg->pose.covariance;
+
+        RCLCPP_INFO(this->get_logger(),
+            "  Pose covariance diag: "
+            "x=%.6f y=%.6f z=%.6f roll=%.6f pitch=%.6f yaw=%.6f",
+            cov[0],    // x-x
+            cov[7],    // y-y
+            cov[14],   // z-z
+            cov[21],   // roll-roll
+            cov[28],   // pitch-pitch
+            cov[35]    // yaw-yaw
+        );
     }
 }
 

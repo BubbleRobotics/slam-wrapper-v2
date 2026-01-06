@@ -306,6 +306,13 @@ Sophus::SE3f System::TrackStereo(const cv::Mat &imLeft, const cv::Mat &imRight, 
     return Tcw;
 }
 
+std::pair<Sophus::SE3f, Eigen::Matrix<float, 6, 6>> System::TrackWithCovariance(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timestamp)
+{
+    Sophus::SE3f Tcw = TrackStereo(imLeft, imRight, timestamp);
+    Eigen::Matrix<float,6,6> pose_covariance = mpTracker->GetCurrentPoseCovariance();
+    return std::make_pair(Tcw, pose_covariance);
+}
+
 Sophus::SE3f System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const double &timestamp, const vector<IMU::Point>& vImuMeas, string filename)
 {
     if(mSensor!=RGBD  && mSensor!=IMU_RGBD)

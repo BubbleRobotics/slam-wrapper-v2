@@ -170,10 +170,11 @@ class StereoMode : public rclcpp::Node
 
         // Publishers for Orb Slam Output
         void PublishOrbSlamOutput(const Sophus::SE3f& T_orbw2orbcam, 
+                                    const Eigen::Matrix<float, 6, 6>& covariance,
                                     const sensor_msgs::msg::Image::ConstSharedPtr img_msg, 
                                     const cv_bridge::CvImageConstPtr& cv_ptr);
         void PublishPose(const Sophus::SE3f& T_orbw2orbcam, const std_msgs::msg::Header& header);
-        void PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const std_msgs::msg::Header& header);
+        void PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const Eigen::Matrix<float, 6, 6>& covariance, const std_msgs::msg::Header& header);
         void PublishPath(const Sophus::SE3f& T_orbcam2gzbw, const std_msgs::msg::Header& header);
         void PublishMapPoints(const std_msgs::msg::Header& header);
         void PublishTrackingImage(const cv::Mat& image, const sensor_msgs::msg::Image::ConstSharedPtr img_msg);
