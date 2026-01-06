@@ -19,12 +19,15 @@ DVLMode::DVLMode() : Node("dvl_node")
 
   this->declare_parameter("dvl_topic", "/dvl/twist_data");
   this->declare_parameter("odometry_est", "/ORB_SLAM3/stereo_sim_node/odometry");
+  this->declare_parameter("verbose", false);
 
   // Populate Variables
   rclcpp::Parameter dvlTopicParam = this->get_parameter("dvl_topic");
   dvlTopic = dvlTopicParam.as_string();
   rclcpp::Parameter odometryEstParam = this->get_parameter("odometry_est");
   odometryEst = odometryEstParam.as_string();
+  rclcpp::Parameter verboseParam = this->get_parameter("verbose");
+  verbose = verboseParam.as_bool();
 
   // DEBUG print
   RCLCPP_INFO(this->get_logger(), "DVL Topic: %s", dvlTopic.c_str());
@@ -50,7 +53,7 @@ DVLMode::~DVLMode()
 
 void DVLMode::DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg)
 {
-    if (initialized_dvl)
+    if (initialized_dvl && verbose)
     {
         // we can use the covariance matrix and the validity bool to decide wether we put the data in the queue
         double t = msg->header.stamp.sec + msg->header.stamp.nanosec * 1e-9;
@@ -82,7 +85,7 @@ void DVLMode::DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg)
 
 void DVLMode::OdomCallback(const nav_msgs::msg::Odometry::ConstSharedPtr &msg)
 {
-    if (initialized_dvl)
+    if (initialized_dvl && verbose)
     {
         double t = msg->header.stamp.sec + msg->header.stamp.nanosec * 1e-9;
         RCLCPP_INFO(this->get_logger(), "Odometry Data:");

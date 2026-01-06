@@ -54,6 +54,7 @@ class DVLMode : public rclcpp::Node{
         std::string dvlTopic = ""; // Topic to subscribe to receive DVL data
         std::string odometryEst = ""; // Topic to subscribe to receive Odometry estimation from ORB SLAM
         bool initialized_dvl = false;
+        bool verbose = false;
 
         //* Definitions of publisher and subscribers
         rclcpp::Subscription<dvl_msgs::msg::DVL>::SharedPtr dvlSub_; // Subscriber to receive DVL messages
