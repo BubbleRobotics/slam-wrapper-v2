@@ -94,7 +94,7 @@ public:
     void InformOnlyTracking(const bool &flag);
 
     void UpdateFrameIMU(const float s, const IMU::Bias &b, KeyFrame* pCurrentKeyFrame);
-    void UpdatePoseCovariance();
+    void UpdatePoseCovariance(int inliers);
     
     KeyFrame* GetLastKeyFrame()
     {
