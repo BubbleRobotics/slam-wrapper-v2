@@ -27,7 +27,7 @@ def generate_launch_description():
             parameters=[
                 {'dvl_topic': '/dvl/twist_data'}, 
                 {'odometry_est': '/ORB_SLAM3/stereo_sim_node/odometry'},
-                {'verbose': False},
+                {'verbose': True},
             ]
     )
 
