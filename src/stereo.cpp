@@ -109,6 +109,7 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
     // TF broadcaster
     if (publishTf_) {
         tfBroadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
+        staticTfBroadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
     }
 
     // Start of VSLAM
@@ -157,6 +158,40 @@ void StereoMode::InitializeVSLAM(){
         this->OnOrbMapTransformed(T_map_new, scale);
     });
     RCLCPP_INFO(this->get_logger(), "ORB-SLAM3 Stereo Node initialized");
+}
+
+bool StereoMode::InitCameraBaseTransform()
+{
+    if (has_cam_to_base_tf_) {
+        return true;
+    }
+
+    try {
+        geometry_msgs::msg::TransformStamped T_gzbcam2gzbBL = 
+            tf_buffer_.lookupTransform(
+                "base_link",              // target
+                realsenseFrameId_,        // source (left camera)
+                tf2::TimePointZero
+            );
+
+        geometry_msgs::msg::TransformStamped tf;
+        tf.header.stamp = this->now();
+        tf.header.frame_id = "base_link_est";
+        tf.child_frame_id  = cameraFrameOrbId_;  // cameraOrb
+        tf.transform = T_gzbcam2gzbBL.transform;
+        staticTfBroadcaster_->sendTransform(tf);
+
+        has_cam_to_base_tf_ = true;
+
+        RCLCPP_INFO(this->get_logger(),
+            "Published Static TF");
+        return true;
+
+    } catch (const tf2::TransformException &ex) {
+        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+            "Waiting for transform: %s", ex.what());
+        return false;
+    }
 }
 
 bool StereoMode::InitImuCamTransform()
@@ -227,6 +262,10 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
         t = this->now().seconds();
     }
 
+    if (!InitCameraBaseTransform())
+    {
+        return;
+    }
 
     // T_orbcam2orbw: points in camera frame to orb world frame
     // T_orbw2orbcam: points in orb world frame to camera frame
@@ -395,7 +434,7 @@ void StereoMode::PublishOrbSlamOutput(const Sophus::SE3f& T_orbw2orbcam,
     {
         rclcpp::Time stamp = img_msg->header.stamp;
         PublishWorldToOrbMapTF(stamp);
-        PublishOrbMapToOrbCamTF(T_orbw2orbcam, stamp);
+        //PublishOrbMapToOrbCamTF(T_orbw2orbcam, stamp); Deactivated for EKF 
     }
     
     // Publish map points
@@ -434,7 +473,7 @@ void StereoMode::PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const Eigen:
     nav_msgs::msg::Odometry odom_msg;
     odom_msg.header.stamp = header.stamp;
     odom_msg.header.frame_id =  worldGazeboFrameId_;
-    odom_msg.child_frame_id = cameraFrameOrbId_;
+    odom_msg.child_frame_id = "base_link_est";
 
     Eigen::Vector3f t = T_orbcam2gzbw.translation();
     Eigen::Quaternionf q = T_orbcam2gzbw.unit_quaternion();

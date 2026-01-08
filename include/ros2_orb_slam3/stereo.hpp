@@ -49,6 +49,7 @@
 #include <nav_msgs/msg/path.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -116,6 +117,7 @@ class StereoMode : public rclcpp::Node
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr trackingImagePub_;
 
         std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
+        std::shared_ptr<tf2_ros::StaticTransformBroadcaster> staticTfBroadcaster_;
 
         //* ORB_SLAM3 related variables
         ORB_SLAM3::System* pAgent; // pointer to a ORB SLAM3 object
@@ -150,6 +152,9 @@ class StereoMode : public rclcpp::Node
         std::string worldGazeboFrameId_ = "map";
         std::string realsenseFrameId_ = "realsense_d455_link_L";
 
+        // Additional variables for the EKF DVL late sensor fusion
+        bool has_cam_to_base_tf_ = false;
+
         //* Helper functions
         // ORB_SLAM3::eigenMatXf convertToEigenMat(const std_msgs::msg::Float32MultiArray& msg); // Helper method, converts semantic matrix eigenMatXf, a Eigen 4x4 float matrix
 
@@ -167,6 +172,7 @@ class StereoMode : public rclcpp::Node
         void ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg); // Callback to process IMU data sent by Python node
 
         bool InitImuCamTransform(); //* Method to initialize the transform between IMU and camera frames
+        bool InitCameraBaseTransform(); //* Method to initialize the transform between camera and base frames
 
         // Publishers for Orb Slam Output
         void PublishOrbSlamOutput(const Sophus::SE3f& T_orbw2orbcam, 
