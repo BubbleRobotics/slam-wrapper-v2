@@ -35,6 +35,7 @@
 #include "MapDrawer.h"
 #include "System.h"
 #include "ImuTypes.h"
+#include "DvlTypes.h"
 #include "Settings.h"
 
 #include "GeometricCamera.h"
@@ -362,6 +363,9 @@ protected:
     Sophus::SE3f mTlr;
 
     void newParameterLoader(Settings* settings);
+
+    // Latest DVL measurement at the time the frame was created
+    DVL::Point mLatestDvlPoint;
 
 #ifdef REGISTER_LOOP
     bool Stop();

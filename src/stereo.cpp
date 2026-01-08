@@ -300,8 +300,8 @@ void StereoMode::DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg){
 
     ORB_SLAM3::DVL::Point p(msg->velocity.x, msg->velocity.y, msg->velocity.z, t);
 
-    // RCLCPP_INFO(this->get_logger(), "Created DVL Point object with");
-    // RCLCPP_INFO(this->get_logger(), "Velocity [%.4e, %.4e, %.4e]", p.v[0], p.v[1], p.v[2]);
+    // Hand measurement point to Tracking object
+    pAgent->mpTracking->mLatestDvlPoint = p;
 }
 
 void StereoMode::ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
