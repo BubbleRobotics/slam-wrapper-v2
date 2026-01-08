@@ -144,6 +144,7 @@ class StereoMode : public rclcpp::Node
         tf2_ros::Buffer tf_buffer_;
         tf2_ros::TransformListener tf_listener_;
         geometry_msgs::msg::TransformStamped transformImuCam;
+        geometry_msgs::msg::TransformStamped T_gzbcam2gzbBL;
 
         // Additional variables for conversions
         Sophus::SE3f T_orbw2gzbw; // stores orb world to gazebo world transform
@@ -187,6 +188,7 @@ class StereoMode : public rclcpp::Node
         void OnOrbMapTransformed(const Sophus::SE3f& T, float s);
         void PublishWorldToOrbMapTF(const rclcpp::Time &stamp);
         void PublishOrbMapToOrbCamTF(const Sophus::SE3f& T_orbw2orbcam, const rclcpp::Time &stamp);
+        void PublishMapToBaseLinkEstTF(const Sophus::SE3f& T_baselink_est2gzbw, const rclcpp::Time &stamp);
 };
 
 #endif

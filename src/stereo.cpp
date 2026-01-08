@@ -167,7 +167,7 @@ bool StereoMode::InitCameraBaseTransform()
     }
 
     try {
-        geometry_msgs::msg::TransformStamped T_gzbcam2gzbBL = 
+        T_gzbcam2gzbBL = 
             tf_buffer_.lookupTransform(
                 "base_link",              // target
                 realsenseFrameId_,        // source (left camera)
@@ -410,7 +410,7 @@ void StereoMode::PublishOrbSlamOutput(const Sophus::SE3f& T_orbw2orbcam,
                                       const sensor_msgs::msg::Image::ConstSharedPtr img_msg,
                                       const cv_bridge::CvImageConstPtr& cv_ptr)
 {
-    if (!has_initial_alignment_) {
+    if (!has_initial_alignment_ || !has_cam_to_base_tf_) {
         return;
     }
 
@@ -475,9 +475,33 @@ void StereoMode::PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const Eigen:
     odom_msg.header.frame_id =  worldGazeboFrameId_;
     odom_msg.child_frame_id = "base_link_est";
 
-    Eigen::Vector3f t = T_orbcam2gzbw.translation();
-    Eigen::Quaternionf q = T_orbcam2gzbw.unit_quaternion();
-    
+    Sophus::SE3f T_cam2base(
+        Eigen::Quaternionf(
+            T_gzbcam2gzbBL.transform.rotation.w,
+            T_gzbcam2gzbBL.transform.rotation.x,
+            T_gzbcam2gzbBL.transform.rotation.y,
+            T_gzbcam2gzbBL.transform.rotation.z),
+        Eigen::Vector3f(
+            T_gzbcam2gzbBL.transform.translation.x,
+            T_gzbcam2gzbBL.transform.translation.y,
+            T_gzbcam2gzbBL.transform.translation.z)
+    );
+
+    Sophus::SE3f T_baselink_est2gzbw = T_orbcam2gzbw * T_cam2base.inverse(); 
+
+    //Only used to test correctness of the orbslam3 estimate in Foxglove but do not use during EKF
+    //PublishMapToBaseLinkEstTF(T_baselink_est2gzbw, header.stamp);
+
+    Eigen::Vector3f t = T_baselink_est2gzbw.translation();
+    Eigen::Quaternionf q = T_baselink_est2gzbw.unit_quaternion();
+
+    Eigen::Matrix3f R_cam2base = T_cam2base.unit_quaternion().toRotationMatrix();
+    Eigen::Matrix<float,6,6> adj = Eigen::Matrix<float,6,6>::Zero();
+    adj.topLeftCorner<3,3>() = R_cam2base;
+    adj.bottomRightCorner<3,3>() = R_cam2base;
+
+    Eigen::Matrix<float,6,6> cov_base = adj * covariance * adj.transpose();
+
     odom_msg.pose.pose.position.x = t.x();
     odom_msg.pose.pose.position.y = t.y();
     odom_msg.pose.pose.position.z = t.z();
@@ -491,10 +515,10 @@ void StereoMode::PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const Eigen:
     {
         for (int c = 0; c < 6; ++c)
         {
-            odom_msg.pose.covariance[r * 6 + c] = static_cast<double>(covariance(r, c));
+            odom_msg.pose.covariance[r * 6 + c] = static_cast<double>(cov_base(r, c));
         }
     }
-    
+
     odomPub_->publish(odom_msg);
     
     try {
@@ -505,7 +529,7 @@ void StereoMode::PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const Eigen:
          // Use image timestamp so SLAM outputs remain time-aligned
          gt_odom.header.stamp = header.stamp;
          gt_odom.header.frame_id = worldGazeboFrameId_;
-         gt_odom.child_frame_id = realsenseFrameId_;
+         gt_odom.child_frame_id = "base_link";
  
          gt_odom.pose.pose.position.x = tf_map_realsense.transform.translation.x;
          gt_odom.pose.pose.position.y = tf_map_realsense.transform.translation.y;
@@ -703,6 +727,27 @@ void StereoMode::PublishOrbMapToOrbCamTF(const Sophus::SE3f& T_orbw2orbcam, cons
     tf.transform.translation.y = t.y();
     tf.transform.translation.z = t.z();
     
+    tf.transform.rotation.x = q.x();
+    tf.transform.rotation.y = q.y();
+    tf.transform.rotation.z = q.z();
+    tf.transform.rotation.w = q.w();
+
+    tfBroadcaster_->sendTransform(tf);
+}
+
+void StereoMode::PublishMapToBaseLinkEstTF(const Sophus::SE3f& T_baselink_est2gzbw, const rclcpp::Time &stamp)
+{
+    Eigen::Vector3f t = T_baselink_est2gzbw.translation();
+    Eigen::Quaternionf q = T_baselink_est2gzbw.unit_quaternion();
+
+    geometry_msgs::msg::TransformStamped tf;
+    tf.header.stamp = stamp;
+    tf.header.frame_id = worldGazeboFrameId_;
+    tf.child_frame_id = "base_link_est";
+    
+    tf.transform.translation.x = t.x();
+    tf.transform.translation.y = t.y();
+    tf.transform.translation.z = t.z();
     tf.transform.rotation.x = q.x();
     tf.transform.rotation.y = q.y();
     tf.transform.rotation.z = q.z();
