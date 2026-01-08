@@ -30,6 +30,7 @@ find_package(nav_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(dvl_msgs REQUIRED)  # DVL messages
 
 
 # Header file locations [C++ node]
@@ -67,6 +68,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   tf2_ros
   tf2_geometry_msgs
   cv_bridge
+  dvl_msgs
 )
 
 #* ORB SLAM3 as a shared library
@@ -91,6 +93,7 @@ add_library(orb_slam3_lib SHARED
   orb_slam3/src/Sim3Solver.cc
   orb_slam3/src/Viewer.cc
   orb_slam3/src/ImuTypes.cc
+  orb_slam3/src/DvlTypes.cc
   orb_slam3/src/G2oTypes.cc
   orb_slam3/src/CameraModels/Pinhole.cpp
   orb_slam3/src/CameraModels/KannalaBrandt8.cpp
@@ -119,6 +122,7 @@ add_library(orb_slam3_lib SHARED
   orb_slam3/include/Sim3Solver.h
   orb_slam3/include/Viewer.h
   orb_slam3/include/ImuTypes.h
+  orb_slam3/include/DvlTypes.h
   orb_slam3/include/G2oTypes.h
   orb_slam3/include/CameraModels/GeometricCamera.h
   orb_slam3/include/CameraModels/Pinhole.h

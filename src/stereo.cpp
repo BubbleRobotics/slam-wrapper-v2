@@ -25,6 +25,7 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
     this->declare_parameter("img0_topic", "/camera/left/image_raw"); // topic to receive image messages
     this->declare_parameter("img1_topic", "/camera/right/image_raw"); // topic to receive image messages
     this->declare_parameter("imu_topic", "/imu/data"); // topic to receive IMU messages
+    this->declare_parameter("dvl_topic", "/dvl/data");  // topic DVL messages
     this->declare_parameter("enable_debug_window", true); // Enable debug window showing SLAM in pangolin/opencv
     this->declare_parameter("is_inertial", true); // switch for inertial and non-inertial mode
     this->declare_parameter("manual_time_sync", false); // switch for manual time synchronization
@@ -45,6 +46,8 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
     img1Topic = img1TopicParam.as_string();
     rclcpp::Parameter imuTopicParam = this->get_parameter("imu_topic");
     imuTopic = imuTopicParam.as_string();
+    rclcpp::Parameter dvlTopicParam = this->get_parameter("dvl_topic");
+    dvlTopic = dvlTopicParam.as_string();
     rclcpp::Parameter enableDebugWindowParam = this->get_parameter("enable_debug_window");
     enableDebugWindow = enableDebugWindowParam.as_bool();
     rclcpp::Parameter isInertialParam = this->get_parameter("is_inertial");
@@ -68,6 +71,7 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
     RCLCPP_INFO(this->get_logger(), "is_inertial %b", isInertial);
     RCLCPP_INFO(this->get_logger(), "manual_time_sync %b", manualTimeSync);
     RCLCPP_INFO(this->get_logger(), "imu_from_yaml %b", imu_from_yaml);
+    RCLCPP_INFO(this->get_logger(), "dvl_topic: %s", dvlTopic.c_str());
 
 
     //set up stereo subscribers with message_filters
@@ -84,6 +88,9 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
     {
         imuSub_= this->create_subscription<sensor_msgs::msg::Imu>(imuTopic, rclcpp::SensorDataQoS(), std::bind(&StereoMode::ImuCallback, this, _1));
     }
+
+    // subscribe to DVL
+    dvlSub_ = this->create_subscription<dvl_msgs::msg::DVL>(dvlTopic, rclcpp::SensorDataQoS(), std::bind(&StereoMode::DvlCallback, this, std::placeholders::_1));
 
     // Create publishers
     posePub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
@@ -287,6 +294,15 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
     }
 }
 
+void StereoMode::DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg){
+    // The timestamp of the message
+    double t = msg->header.stamp.sec + msg->header.stamp.nanosec * 1e-9;
+
+    ORB_SLAM3::DVL::Point p(msg->velocity.x, msg->velocity.y, msg->velocity.z, t);
+
+    // RCLCPP_INFO(this->get_logger(), "Created DVL Point object with");
+    // RCLCPP_INFO(this->get_logger(), "Velocity [%.4e, %.4e, %.4e]", p.v[0], p.v[1], p.v[2]);
+}
 
 void StereoMode::ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
 {   

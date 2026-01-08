@@ -38,6 +38,7 @@
 #include "ORBVocabulary.h"
 #include "Viewer.h"
 #include "ImuTypes.h"
+#include "DvlTypes.h"
 #include "Settings.h"
 #include "Map.h"
 

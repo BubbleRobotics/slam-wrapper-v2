@@ -43,6 +43,8 @@
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
 #include "sensor_msgs/msg/imu.hpp"
+#include <dvl_msgs/msg/dvl.hpp> // For the DVL message type
+//#include <sensors_msgs/msg/dvl.hpp>  
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
@@ -99,6 +101,7 @@ class StereoMode : public rclcpp::Node
         std::string img0Topic = ""; // Topic to subscribe to receive infra1 rec images
         std::string img1Topic = ""; // Topic to subscribe to receive infra2 rec images
         std::string imuTopic = "";
+        std::string dvlTopic;
 
         //* Definitions of publisher and subscribers
         std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::Image>> img0Sub_;
@@ -107,6 +110,7 @@ class StereoMode : public rclcpp::Node
         std::shared_ptr<message_filters::Synchronizer<ImgSyncPolicy>> sync_;
 
         rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imuSub_; // Subscriber to receive IMU messages
+        rclcpp::Subscription<dvl_msgs::msg::DVL>::SharedPtr dvlSub_;  // Subscriber DVL messages
 
         rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr posePub_;
         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odomPub_;
@@ -165,7 +169,8 @@ class StereoMode : public rclcpp::Node
         void StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &left_img,
                              const sensor_msgs::msg::Image::ConstSharedPtr &right_img);
         void ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg); // Callback to process IMU data sent by Python node
-
+        void DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg);
+        
         bool InitImuCamTransform(); //* Method to initialize the transform between IMU and camera frames
 
         // Publishers for Orb Slam Output
