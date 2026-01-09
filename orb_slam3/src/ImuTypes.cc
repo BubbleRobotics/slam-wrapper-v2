@@ -17,6 +17,7 @@
 */
 
 #include "ImuTypes.h"
+#include "DvlTypes.h"
 #include "Converter.h"
 
 #include "GeometricTools.h"
@@ -119,6 +120,33 @@ Preintegrated::Preintegrated(Preintegrated* pImuPre): dT(pImuPre->dT),C(pImuPre-
 {
 
 }
+
+// ----- DVL ----- //
+Preintegrated::Preintegrated(
+    const Bias &b_, 
+    const Calib &calib, 
+    const Eigen::DiagonalMatrix<float, 3> &DvlCov, 
+    const Sophus::SO3f &Rid,
+    const Eigen::Vector3f &LatestDvlV,
+    float LatestDvlTime){
+
+    Nga = calib.Cov;
+    NgaWalk = calib.CovWalk;
+    Initialize(b_);
+
+    // Set the DVL parameters
+    this->mDvlCov = DvlCov;
+    this->mRid = Rid;
+    this->mvLatestDvlV = LatestDvlV;
+    this->mfLatestDvlTime = LatestDvlTime;
+
+    // Set the flag for using the DVL
+    // This is what changes the behaviour of the 
+    // object in other functions
+    // this->mbUseDvl = true;
+
+    // std::cout << "USed the cool new IMU-DVL-Preint constructor!!!" << std::endl;
+};
 
 void Preintegrated::CopyFrom(Preintegrated* pImuPre)
 {

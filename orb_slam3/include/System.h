@@ -131,6 +131,9 @@ public:
     // Returns nothing
     void TrackIMU(const double &timestamp, const IMU::Point &imuMeas);
 
+    // Method to pass a new DVL measurement to the mpTracker object
+    void TrackDvl(const DVL::Point& p);
+
     // This stops local mapping thread (map building) and performs only camera tracking.
     void ActivateLocalizationMode();
     // This resumes local mapping thread and performs SLAM again.

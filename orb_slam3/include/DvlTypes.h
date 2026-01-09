@@ -2,6 +2,7 @@
 #define DVLTYPESH
 
 #include <Eigen/Dense>
+#include <sophus/se3.hpp>
 
 namespace ORB_SLAM3
 {
@@ -29,28 +30,37 @@ class Point{
 class Calib{
 
     // A class to hold the calibration parameters relating to the DVL:
-    // * R_ID
-    // * Sigma_D -- the DVL measurement noise
+    // R_ID
+    // Sigma_D -- the DVL measurement noise
 
     private:
 
-        // For now: hard-code DVL parameters here
-        // Average speed of BlueRov 1m/s, long term accuracy 1.01%
-        float mSigma = 1.0 * 0.0101;
+        // Standard deviation for measurement noise matrix
+        static float mSigma;
 
+        // Diagonal sensor noise covarinace meatrix: assume noise of the
+        // measured velocity vector around the physical velocity is isotropic
+        static Eigen::DiagonalMatrix<float, 3> mCov;
+
+        // Rotation matrix transforming vectors in the DVL frame to vectors in the IMU body frame.
+        static Sophus::SO3f mRid;
+    
     public:
 
-        // Rotation matrix transforming vectors in the DVL frame to vectors
-        // in the IMU body frame. Taken from the Tank dataset parameter file 
-        // for HalfTank_Easy
-        const Sophus::SO3<float> mR_ID(-0.0030,    0.0292,    0.9996,
-                                        0.9995,    0.0328,    0.0021,
-                                        -0.0327,    0.9990,   -0.0293);
-        // Diagonal sensor noise covarinace meatrix: assume noise of the 
-        // measured velocity vector around the physical velocity is isotropic.
-        const Eigen::DiagonalMatrix<float, 3> mCov(mSigma*mSigma, mSigma*mSigma, mSigma*mSigma);
+        // Default constructor
+        Calib() = default;
+        
+        // Getters for the constants
+        static const Sophus::SO3f& R_ID() {
+           return mRid;
+        }
+        static const Eigen::DiagonalMatrix<float, 3>& Cov() {
+           return mCov;
+        }
 
-}
+        // void usless_method();
+
+};
 
 }
 

@@ -93,6 +93,7 @@ add_library(orb_slam3_lib SHARED
   orb_slam3/src/Sim3Solver.cc
   orb_slam3/src/Viewer.cc
   orb_slam3/src/ImuTypes.cc
+  orb_slam3/src/DvlTypes.cc
   orb_slam3/src/G2oTypes.cc
   orb_slam3/src/CameraModels/Pinhole.cpp
   orb_slam3/src/CameraModels/KannalaBrandt8.cpp

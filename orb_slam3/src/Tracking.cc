@@ -1716,6 +1716,7 @@ void Tracking::PreintegrateIMU()
         return;
     }
 
+    // Call a different constructor depending on whether the DVL is used or not
     IMU::Preintegrated* pImuPreintegratedFromLastFrame = new IMU::Preintegrated(mLastFrame.mImuBias,mCurrentFrame.mImuCalib);
 
     for(int i=0; i<n; i++)

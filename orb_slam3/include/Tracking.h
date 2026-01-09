@@ -183,6 +183,15 @@ public:
 
     bool mbWriteStats;
 
+    // ----- DVL ----- //
+
+    // Dvl calibration object containing parameters Rid and Cov
+    // DVL::Calib mDvlCalib;
+    // Latest DVL measurement at the time the frame was created
+    DVL::Point mLatestDvlPoint;
+    // Wheter to actually use this measurement. Set to true when a measurement comes in.
+    bool mbUseDvl = false;
+
 #ifdef REGISTER_TIMES
     void LocalMapStats2File();
     void TrackStats2File();
@@ -363,9 +372,6 @@ protected:
     Sophus::SE3f mTlr;
 
     void newParameterLoader(Settings* settings);
-
-    // Latest DVL measurement at the time the frame was created
-    DVL::Point mLatestDvlPoint;
 
 #ifdef REGISTER_LOOP
     bool Stop();

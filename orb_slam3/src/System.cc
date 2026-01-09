@@ -480,6 +480,24 @@ void System::TrackIMU(const double &timestamp, const IMU::Point &imuMeas)
     mpTracker->GrabImuData(imuMeas);
 }
 
+void System::TrackDvl(const DVL::Point& p){
+    // Method to pass the DVL measurement point to the Tracker object
+
+    // check if we use an IMU method
+    if (!((mSensor == System::IMU_MONOCULAR) || 
+            (mSensor == System::IMU_STEREO) || 
+            (mSensor == System::IMU_RGBD))) 
+    {
+        // Display warning and return
+        cout << "SYSTEM not set to use DVL data" << endl;
+        return;
+    }
+
+    mpTracker->mLatestDvlPoint = p;
+    mpTracker->mbUseDvl = true;
+};
+
+
 void System::ActivateLocalizationMode()
 {
     unique_lock<mutex> lock(mMutexMode);

@@ -170,6 +170,17 @@ class Preintegrated
 
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    // Constructor with a DVL measurement
+    Preintegrated(
+        const Bias &b_, 
+        const Calib &calib, 
+        const Eigen::DiagonalMatrix<float, 3> &DvlCov, 
+        const Sophus::SO3f &Rid,
+        const Eigen::Vector3f &LatestDvlV,
+        float LatestDvlTime
+    );
+
+    // Pure IMU integration constructors
     Preintegrated(const Bias &b_, const Calib &calib);
     Preintegrated(Preintegrated* pImuPre);
     Preintegrated() {}
@@ -219,7 +230,14 @@ public:
     Eigen::Vector3f dV, dP;
     Eigen::Matrix3f JRg, JVg, JVa, JPg, JPa;
     Eigen::Vector3f avgA, avgW;
+    
+    // ----- DVL ----- //
 
+    // Whether a DVL measurement is integrated as well
+    bool mbUseDvl = false;
+    // The DVL measurement that was received
+    Eigen::Vector3f mvLatestDvlV;
+    float mfLatestDvlTime;
 
 private:
     // Updated bias
@@ -248,6 +266,16 @@ private:
     std::vector<integrable> mvMeasurements;
 
     std::mutex mMutex;
+
+    // ----- DVL ----- //
+
+    // Importing DvlTypes.h triggers an unresolved internal compiler error
+    // on the workstation machine. This is more complicated than necessary for this reason
+
+    // Copy of what a DVL::Calib object provides
+    Eigen::DiagonalMatrix<float, 3> mDvlCov;
+    Sophus::SO3f mRid;
+
 };
 
 // Lie Algebra Functions
@@ -261,6 +289,6 @@ Eigen::Matrix3f NormalizeRotation(const Eigen::Matrix3f &R);
 
 }
 
-} //namespace ORB_SLAM2
+} //namespace ORB_SLAM3
 
 #endif // IMUTYPES_H
