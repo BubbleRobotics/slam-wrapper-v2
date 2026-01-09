@@ -1535,6 +1535,14 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
     else if(mSensor == System::IMU_STEREO && mpCamera2)
         mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,mpCamera2,mTlr,&mLastFrame,*mpImuCalib);
 
+    // If there is a DVL measurement: add that to the frame
+    if (this->mbUseDvl){
+        mCurrentFrame.mbUseDvl = true;
+        mCurrentFrame.mLatestDvlPoint = this->mLatestDvlPoint;
+        // std::cout << "Communicated DVL measure to new frame" << std::endl;
+        // std::cout << "It worked " << mCurrentFrame.mbUseDvl << std::endl;
+    }
+
     //cout << "Incoming frame ended" << endl;
 
     mCurrentFrame.mNameFile = filename;
@@ -1720,7 +1728,7 @@ void Tracking::PreintegrateIMU()
 
     // Call a different constructor depending on whether the DVL is used or not
     if (this->mbUseDvl){
-        // Verbose::PrintMess("Hey, I called the DVL version of IMU::Preint.", Verbose::VERBOSITY_DEBUG);
+        // Verbose::PrintMess("Used the cool new IMU-DVL-Preint constructor with Verbose!!!", Verbose::VERBOSITY_DEBUG)
         pImuPreintegratedFromLastFrame = new IMU::Preintegrated(
             mLastFrame.mImuBias,
             mCurrentFrame.mImuCalib,

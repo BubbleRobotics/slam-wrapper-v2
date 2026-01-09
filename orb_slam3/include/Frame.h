@@ -28,6 +28,7 @@
 #include "Thirdparty/Sophus/sophus/geometry.hpp"
 
 #include "ImuTypes.h"
+#include "DvlTypes.h"
 #include "ORBVocabulary.h"
 
 #include "Converter.h"
@@ -367,6 +368,13 @@ public:
     }
 
     Sophus::SE3<double> T_test;
+
+    // ----- DVL ----- //
+    // If the DVL was used when the frame was created
+    bool mbUseDvl = false;
+    // The latest DVL measurement when the frame was created
+    DVL::Point mLatestDvlPoint;
+
 };
 
 }// namespace ORB_SLAM
