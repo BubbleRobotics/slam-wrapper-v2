@@ -4,9 +4,20 @@ namespace ORB_SLAM3{
 
 namespace DVL {
 
-Eigen::DiagonalMatrix<float, 3> Calib::mCov(1.0f, 1.0f, 1.0f);
+// Standard deviation of isotropic Gaussian DVL measurement noise
 float Calib::mSigma = 1.0 * 0.0101;
-Sophus::SO3f Calib::mRid(
+
+// Covariance matrix for DVL measurement noise
+Eigen::DiagonalMatrix<float, 3> Calib::mCov(
+    Calib::mSigma * Calib::mSigma, 
+    Calib::mSigma * Calib::mSigma, 
+    Calib::mSigma * Calib::mSigma 
+);
+
+// Matrix R_ID
+// Taken from the Tank dataset parameter file for HalfTank_Easy
+// Determinant 1.000036 but it needs the explicit fitToSO3 to work
+Sophus::SO3f Calib::mRid = Sophus::SO3f::fitToSO3(
     Eigen::Matrix3f{
         {-0.0030f, 0.0292f, 0.9996f},
         { 0.9995f, 0.0328f, 0.0021f},
