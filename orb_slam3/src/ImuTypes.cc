@@ -136,11 +136,11 @@ Preintegrated::Preintegrated(
     NgaWalk = calib.CovWalk;
     Initialize(b_);
 
-    // Set the DVL parameters
-    this->mDvlCov = DvlCov;
-    this->mRid = Rid;
-    this->mvLatestDvlV = LatestDvlV;
-    this->mfLatestDvlTime = LatestDvlTime;
+    // Set the DVL parameters as member variables
+    mDvlCov = DvlCov;
+    mRid = Rid.matrix();
+    mvLatestDvlV = LatestDvlV;
+    mfLatestDvlTime = LatestDvlTime;
 
     // Set the flag for using the DVL
     // This is what changes the behaviour of the 
@@ -194,6 +194,9 @@ void Preintegrated::Initialize(const Bias &b_)
     avgW.setZero();
     dT=0.0f;
     mvMeasurements.clear();
+
+    // Reset also the new DVL position delta
+    dPdvl.setZero();
 }
 
 void Preintegrated::Reintegrate()
@@ -226,9 +229,18 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
     avgA = (dT*avgA + dR*acc*dt)/(dT+dt);
     avgW = (dT*avgW + accW*dt)/(dT+dt);
 
-    // Update delta position dP and velocity dV (rely on no-updated delta rotation)
+    // Update delta position dP and velocity dV (rely on no-updated delta rotation
+    // since the sereies in Forster et al. goes from i to j-1)
     dP = dP + dV*dt + 0.5f*dR*acc*dt*dt;
     dV = dV + dR*acc*dt;
+
+    // DVL position delta update
+    if (this->mbUseDvl){
+        // std::cout << "dPdvl prior to update:" << std::endl;
+        // std::cout << "[" << dPdvl[0] << " " << dPdvl[1] << " " << dPdvl[2] << "]" << std::endl;
+        // Update according to AquaSlam
+        dPdvl = dPdvl + dR * mRid * mvLatestDvlV;
+    }
 
     // Compute velocity and position parts of matrices A and B (rely on non-updated delta rotation)
     Eigen::Matrix<float,3,3> Wacc = Sophus::SO3f::hat(acc);

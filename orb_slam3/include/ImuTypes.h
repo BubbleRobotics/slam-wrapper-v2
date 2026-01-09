@@ -239,6 +239,9 @@ public:
     Eigen::Vector3f mvLatestDvlV;
     float mfLatestDvlTime;
 
+    // For computing the DVL position delta
+    Eigen::Vector3f dPdvl;
+
 private:
     // Updated bias
     Bias bu;
@@ -274,7 +277,7 @@ private:
 
     // Copy of what a DVL::Calib object provides
     Eigen::DiagonalMatrix<float, 3> mDvlCov;
-    Sophus::SO3f mRid;
+    Eigen::Matrix3f mRid;
 
 };
 
