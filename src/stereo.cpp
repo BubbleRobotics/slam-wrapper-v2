@@ -302,6 +302,8 @@ void StereoMode::DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg){
 
     // Hand measurement point to Tracking object
     pAgent->TrackDvl(p);
+
+    RCLCPP_INFO(this->get_logger(), "Called DvlCallback");
 }
 
 void StereoMode::ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)

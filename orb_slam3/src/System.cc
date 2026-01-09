@@ -217,7 +217,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     }
 
     // Fix verbosity
-    Verbose::SetTh(Verbose::VERBOSITY_QUIET);
+    Verbose::SetTh(Verbose::VERBOSITY_DEBUG);
 
 }
 
@@ -492,7 +492,7 @@ void System::TrackDvl(const DVL::Point& p){
         cout << "SYSTEM not set to use DVL data" << endl;
         return;
     }
-
+    
     mpTracker->mLatestDvlPoint = p;
     mpTracker->mbUseDvl = true;
 };

@@ -1716,8 +1716,23 @@ void Tracking::PreintegrateIMU()
         return;
     }
 
+    IMU::Preintegrated* pImuPreintegratedFromLastFrame = nullptr;
+
     // Call a different constructor depending on whether the DVL is used or not
-    IMU::Preintegrated* pImuPreintegratedFromLastFrame = new IMU::Preintegrated(mLastFrame.mImuBias,mCurrentFrame.mImuCalib);
+    if (this->mbUseDvl){
+        // Verbose::PrintMess("Hey, I called the DVL version of IMU::Preint.", Verbose::VERBOSITY_DEBUG);
+        pImuPreintegratedFromLastFrame = new IMU::Preintegrated(
+            mLastFrame.mImuBias,
+            mCurrentFrame.mImuCalib,
+            mDvlCalib.Cov(),
+            mDvlCalib.R_ID(),
+            mLatestDvlPoint.v,
+            mLatestDvlPoint.t);
+    }
+    
+    else {
+        pImuPreintegratedFromLastFrame = new IMU::Preintegrated(mLastFrame.mImuBias,mCurrentFrame.mImuCalib);
+    }
 
     for(int i=0; i<n; i++)
     {

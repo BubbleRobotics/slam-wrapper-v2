@@ -128,7 +128,9 @@ Preintegrated::Preintegrated(
     const Eigen::DiagonalMatrix<float, 3> &DvlCov, 
     const Sophus::SO3f &Rid,
     const Eigen::Vector3f &LatestDvlV,
-    float LatestDvlTime){
+    float LatestDvlTime)
+    
+    {
 
     Nga = calib.Cov;
     NgaWalk = calib.CovWalk;
@@ -145,7 +147,8 @@ Preintegrated::Preintegrated(
     // object in other functions
     this->mbUseDvl = true;
 
-    std::cout << "Used the cool new IMU-DVL-Preint constructor!!!" << std::endl;
+    // std::cout << "Got this DVL velocity measurement:" << std::endl;
+    // std::cout << "[" << LatestDvlV[0] << " " << LatestDvlV[1] << " " << LatestDvlV[2] << "]" << std::endl;
 };
 
 void Preintegrated::CopyFrom(Preintegrated* pImuPre)
