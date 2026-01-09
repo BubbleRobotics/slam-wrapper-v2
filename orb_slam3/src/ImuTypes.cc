@@ -143,9 +143,9 @@ Preintegrated::Preintegrated(
     // Set the flag for using the DVL
     // This is what changes the behaviour of the 
     // object in other functions
-    // this->mbUseDvl = true;
+    this->mbUseDvl = true;
 
-    // std::cout << "USed the cool new IMU-DVL-Preint constructor!!!" << std::endl;
+    std::cout << "Used the cool new IMU-DVL-Preint constructor!!!" << std::endl;
 };
 
 void Preintegrated::CopyFrom(Preintegrated* pImuPre)

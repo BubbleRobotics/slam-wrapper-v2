@@ -186,7 +186,7 @@ public:
     // ----- DVL ----- //
 
     // Dvl calibration object containing parameters Rid and Cov
-    // DVL::Calib mDvlCalib;
+    DVL::Calib mDvlCalib;
     // Latest DVL measurement at the time the frame was created
     DVL::Point mLatestDvlPoint;
     // Wheter to actually use this measurement. Set to true when a measurement comes in.
