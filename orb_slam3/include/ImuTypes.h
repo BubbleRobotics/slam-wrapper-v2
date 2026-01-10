@@ -241,6 +241,8 @@ public:
 
     // For computing the DVL position delta
     Eigen::Vector3f dPdvl;
+    Eigen::Matrix3f mLatestDvlVinImuFrameHat;
+    Eigen::Matrix<float, 6, 6> SigmaS;
 
 private:
     // Updated bias

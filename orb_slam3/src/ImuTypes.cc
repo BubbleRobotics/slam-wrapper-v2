@@ -142,10 +142,17 @@ Preintegrated::Preintegrated(
     mvLatestDvlV = LatestDvlV;
     mfLatestDvlTime = LatestDvlTime;
 
+    // std::cout << "Got this DVL velocity: " << std::endl;
+    // std::cout << "[" << LatestDvlV[0] << " " << LatestDvlV[1] << " " << LatestDvlV[2] << " " << "]" << std::endl;
+
     // Set the flag for using the DVL
     // This is what changes the behaviour of the 
     // object in other functions
     this->mbUseDvl = true;
+
+    // pre-compute R_id * V (DVL's measured velocity
+    // in the IMU body frame). This will be used in pre-integration
+    mLatestDvlVinImuFrameHat = Sophus::SO3f::hat(Rid.matrix() * LatestDvlV);
 
     // std::cout << "Got this DVL velocity measurement:" << std::endl;
     // std::cout << "[" << LatestDvlV[0] << " " << LatestDvlV[1] << " " << LatestDvlV[2] << "]" << std::endl;
@@ -197,6 +204,7 @@ void Preintegrated::Initialize(const Bias &b_)
 
     // Reset also the new DVL position delta
     dPdvl.setZero();
+    SigmaS.setZero();
 }
 
 void Preintegrated::Reintegrate()
@@ -222,6 +230,12 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
     Eigen::Matrix<float,9,6> B;
     B.setZero();
 
+    // For computing the covariance of the DVL:
+    Eigen::Matrix<float, 6, 6> F;
+    F.setZero();
+    Eigen::Matrix<float, 6, 3> G;
+    G.setZero();
+
     Eigen::Vector3f acc, accW;
     acc << acceleration(0)-b.bax, acceleration(1)-b.bay, acceleration(2)-b.baz;
     accW << angVel(0)-b.bwx, angVel(1)-b.bwy, angVel(2)-b.bwz;
@@ -235,7 +249,7 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
     dV = dV + dR*acc*dt;
 
     // DVL position delta update
-    if (this->mbUseDvl){
+    if (mbUseDvl){
         // std::cout << "dPdvl prior to update:" << std::endl;
         // std::cout << "[" << dPdvl[0] << " " << dPdvl[1] << " " << dPdvl[2] << "]" << std::endl;
         // Update according to AquaSlam
@@ -251,24 +265,54 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
     B.block<3,3>(3,3) = dR*dt;
     B.block<3,3>(6,3) = 0.5f*dR*dt*dt;
 
-
     // Update position and velocity jacobians wrt bias correction
     JPa = JPa + JVa*dt -0.5f*dR*dt*dt;
     JPg = JPg + JVg*dt -0.5f*dR*dt*dt*Wacc*JRg;
     JVa = JVa - dR*dt;
     JVg = JVg - dR*dt*Wacc*JRg;
 
+    // For the DVL
+    // Set up matrices for error propagation: everything that does 
+    // not depend on the current measurement
+    if (mbUseDvl){
+        F.block<3, 3>(3, 0) = Eigen::Matrix3f::Identity(3, 3);
+        F.block<3, 3>(3, 3) = dR * mLatestDvlVinImuFrameHat * dt;
+    }
+
     // Update delta rotation
-    IntegratedRotation dRi(angVel,b,dt);
-    dR = NormalizeRotation(dR*dRi.deltaR);
+    IntegratedRotation dRi(angVel,b,dt);  // The DeltaR_k-1_k
+    dR = NormalizeRotation(dR*dRi.deltaR);  // DeltaR_i_k
 
     // Compute rotation parts of matrices A and B
     A.block<3,3>(0,0) = dRi.deltaR.transpose();
     B.block<3,3>(0,0) = dRi.rightJ*dt;
 
+    // For the DVL:
+    // Set up matrices for error propagation: everything that *does* 
+    // depend on the current measurement
+    if (mbUseDvl){
+        F.block<3, 3>(0, 0) = A.block<3,3>(0,0);
+        G.block<3, 3>(0, 0) = dRi.rightJ * dt;
+    }
+
     // Update covariance
     C.block<9,9>(0,0) = A * C.block<9,9>(0,0) * A.transpose() + B*Nga*B.transpose();
     C.block<6,6>(9,9) += NgaWalk;
+
+    // For the DVL
+    // Update covariance of delta_s
+    if (mbUseDvl){
+        // std::cout << "IMU: dRi.rightJ \n";
+        // std::cout << dRi.rightJ << "\n" << std::endl;
+
+        // std::cout << "SigmaS before the update: " << std::endl;
+        // std::cout << SigmaS << std::endl;
+
+        SigmaS = F * SigmaS * F.transpose() + G * mDvlCov * G.transpose();
+
+        // std::cout << "SigmaS after the update: " << std::endl;
+        // std::cout << SigmaS << std::endl << std::endl;
+    }
 
     // Update rotation jacobian wrt bias correction
     JRg = dRi.deltaR.transpose()*JRg - dRi.rightJ*dt;
