@@ -218,6 +218,9 @@ public:
         std::cout << "end pint meas:\n";
     }
 
+    // DVL: assemble covariance matrix of residual
+    Eigen::Matrix<float, 9, 9> GetDvlCov();
+
 public:
     float dT;
     Eigen::Matrix<float,15,15> C;

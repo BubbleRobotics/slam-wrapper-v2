@@ -123,7 +123,7 @@ Preintegrated::Preintegrated(Preintegrated* pImuPre): dT(pImuPre->dT),C(pImuPre-
 
 // ----- DVL ----- //
 Preintegrated::Preintegrated(
-    const Bias &b_, 
+    const Bias &b_,         // the constant bias we assume during pre-integration
     const Calib &calib, 
     const Eigen::DiagonalMatrix<float, 3> &DvlCov, 
     const Sophus::SO3f &Rid,
@@ -302,11 +302,12 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
     // For the DVL
     // Update covariance of delta_s
     if (mbUseDvl){
-        // std::cout << "IMU: dRi.rightJ \n";
-        // std::cout << dRi.rightJ << "\n" << std::endl;
-
         // std::cout << "SigmaS before the update: " << std::endl;
-        // std::cout << SigmaS << std::endl;
+        // std::cout << SigmaS << "\n" << std::endl;
+        // std::cout << "G is \n";
+        // std::cout << G << "\n" << std::endl;
+        // std::cout << "F is \n";
+        // std::cout << F << "\n" << std::endl;
 
         SigmaS = F * SigmaS * F.transpose() + G * mDvlCov * G.transpose();
 
@@ -358,6 +359,31 @@ void Preintegrated::SetNewBias(const Bias &bu_)
     db(3) = bu_.bax-b.bax;
     db(4) = bu_.bay-b.bay;
     db(5) = bu_.baz-b.baz;
+}
+
+// Getter assembling the DVL residual covariance matrix
+Eigen::Matrix<float, 9, 9> Preintegrated::GetDvlCov(){
+
+    // Initialise as zero matrix
+    Eigen::Matrix<float, 9, 9> SigmaDVL;
+    SigmaDVL.setZero();
+
+    // The matrix transforming the DVL noise at time i
+    // Exploit the fact that it has a very similar for to the Jacobian JVa
+    Eigen::Matrix3f MatrixDvlNoiseI = -1 * JVa * mRid;
+
+    // std::cout << "JVa is \n";
+    // std::cout << JVa << std::endl;
+
+    // Ppoulate from top left to bottom right
+    SigmaDVL.block<3, 3>(0, 0) = mDvlCov;
+    SigmaDVL.block<3, 3>(0, 6) = mDvlCov * MatrixDvlNoiseI.transpose();
+    SigmaDVL.block<3, 3>(3, 3) = mDvlCov;
+    SigmaDVL.block<3, 3>(6, 0) = MatrixDvlNoiseI * mDvlCov;
+    SigmaDVL.block<3, 3>(6, 6) = MatrixDvlNoiseI * mDvlCov * MatrixDvlNoiseI.transpose();
+    SigmaDVL.block<3, 3>(6, 6) += SigmaS.block<3, 3>(3, 3);
+
+    return SigmaDVL;
 }
 
 IMU::Bias Preintegrated::GetDeltaBias(const Bias &b_)

@@ -1792,6 +1792,10 @@ void Tracking::PreintegrateIMU()
     mCurrentFrame.setIntegrated();
 
     //Verbose::PrintMess("Preintegration is finished!! ", Verbose::VERBOSITY_DEBUG);
+    // if (mCurrentFrame.mbUseDvl){
+    //     std::cout << "Got this DVL covariance \n";
+    //     std::cout << mCurrentFrame.mpImuPreintegratedFrame->GetDvlCov() << "\n \n" << std::endl; 
+    // }
 }
 
 

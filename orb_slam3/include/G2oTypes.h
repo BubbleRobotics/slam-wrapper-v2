@@ -544,6 +544,32 @@ public:
 };
 
 
+// Edge representing DVL residuals between two consecutive frames, only one DVL measurement used
+class EdgeDvlSingle : public g2o::BaseMultiEdge<9,Vector9d>
+{
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+    // The IMU::Preintegrated object also computed the DVL residual when a DVL measurement was available
+    EdgeDvlSingle(IMU::Preintegrated* pInt);
+
+    // Not using these virtual functions, but g2o requires they be overwritten
+    virtual bool read(std::istream& is){return false;}
+    virtual bool write(std::ostream& os) const{return false;}
+
+    // Overwriting the function to compute the residual value for given measurements and values of the 
+    // optimisation variables
+    void computeError();
+
+    // Overwrtiting the function to compute the Jacobians of the residual vector with respect to all the 
+    // optimisation variables 
+    virtual void linearizeOplus();
+
+public:
+    IMU::Preintegrated* mpInt;
+};
+
+
 // Edge inertial whre gravity is included as optimizable variable and it is not supposed to be pointing in -z axis, as well as scale
 class EdgeInertialGS : public g2o::BaseMultiEdge<9,Vector9d>
 {

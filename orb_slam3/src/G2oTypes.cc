@@ -593,6 +593,34 @@ void EdgeInertial::linearizeOplus()
     _jacobianOplus[5].block<3,3>(3,0) = Rbw1; // OK
 }
 
+
+// ---------- DVL ----------- //
+
+EdgeDvlSingle::EdgeDvlSingle(IMU::Preintegrated* pInt) 
+    : mpInt(pInt)
+{
+    float x = 3;
+    float y = 4;
+    float z = x + y;
+    std::cout << "Hello, this body is not empty." << std::endl;
+
+}
+
+void EdgeDvlSingle::computeError(){
+    float x = 3;
+    float y = 4;
+    float z = x + y;
+    std::cout << "Hello, this body is not empty." << std::endl;
+}
+
+void EdgeDvlSingle::linearizeOplus(){
+    float x = 3;
+    float y = 4;
+    float z = x + y;
+    std::cout << "Hello, this body is not empty." << std::endl;
+}
+
+
 EdgeInertialGS::EdgeInertialGS(IMU::Preintegrated *pInt):JRg(pInt->JRg.cast<double>()),
     JVg(pInt->JVg.cast<double>()), JPg(pInt->JPg.cast<double>()), JVa(pInt->JVa.cast<double>()),
     JPa(pInt->JPa.cast<double>()), mpInt(pInt), dt(pInt->dT)
