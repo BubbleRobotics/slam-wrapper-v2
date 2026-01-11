@@ -174,31 +174,9 @@ bool StereoMode::InitCameraBaseTransform()
                 tf2::TimePointZero
             );
 
-        geometry_msgs::msg::TransformStamped tf;
-        tf.header.stamp = this->now();
-        tf.header.frame_id = "base_link_est";
-        tf.child_frame_id  = cameraFrameOrbId_;  // cameraOrb
-        tf.transform = T_gzbcam2gzbBL.transform;
-        staticTfBroadcaster_->sendTransform(tf);
-
-        // here we assume map and odom start at the exact same position
-        geometry_msgs::msg::TransformStamped tf_odom;
-        tf_odom.header.stamp = this->now();
-        tf_odom.header.frame_id = "map";
-        tf_odom.child_frame_id = "odom";
-        tf_odom.transform.translation.x = 0.0;
-        tf_odom.transform.translation.y = 0.0;
-        tf_odom.transform.translation.z = 0.0;
-        tf_odom.transform.rotation.x = 0.0;
-        tf_odom.transform.rotation.y = 0.0;
-        tf_odom.transform.rotation.z = 0.0;
-        tf_odom.transform.rotation.w = 1.0;
-        staticTfBroadcaster_->sendTransform(tf_odom);
-
         has_cam_to_base_tf_ = true;
 
-        RCLCPP_INFO(this->get_logger(),
-            "Published Static TF");
+        RCLCPP_INFO(this->get_logger(), "TF Received");
         return true;
 
     } catch (const tf2::TransformException &ex) {
@@ -448,7 +426,7 @@ void StereoMode::PublishOrbSlamOutput(const Sophus::SE3f& T_orbw2orbcam,
     {
         rclcpp::Time stamp = img_msg->header.stamp;
         PublishWorldToOrbMapTF(stamp);
-        //PublishOrbMapToOrbCamTF(T_orbw2orbcam, stamp); Deactivated for EKF 
+        PublishOrbMapToOrbCamTF(T_orbw2orbcam, stamp);
     }
     
     // Publish map points
@@ -486,8 +464,8 @@ void StereoMode::PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const Eigen:
 {
     nav_msgs::msg::Odometry odom_msg;
     odom_msg.header.stamp = header.stamp;
-    odom_msg.header.frame_id =  "odom";
-    odom_msg.child_frame_id = "base_link_est";
+    odom_msg.header.frame_id = worldGazeboFrameId_;
+    odom_msg.child_frame_id = "base_link_est"; // FOR EKF USAGE
 
     Sophus::SE3f T_cam2base(
         Eigen::Quaternionf(
@@ -503,7 +481,6 @@ void StereoMode::PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const Eigen:
 
     Sophus::SE3f T_baselink_est2gzbw = T_orbcam2gzbw * T_cam2base.inverse(); 
 
-    //Only used to test correctness of the orbslam3 estimate in Foxglove but do not use during EKF
     PublishMapToBaseLinkEstTF(T_baselink_est2gzbw, header.stamp);
 
     Eigen::Vector3f t = T_baselink_est2gzbw.translation();
@@ -538,7 +515,7 @@ void StereoMode::PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const Eigen:
     try {
         // lookup latest available transform from 'map' to the realsense frame
         geometry_msgs::msg::TransformStamped tf_map_realsense =
-            tf_buffer_.lookupTransform(worldGazeboFrameId_, realsenseFrameId_, tf2::TimePointZero);
+            tf_buffer_.lookupTransform(worldGazeboFrameId_, "base_link", tf2::TimePointZero);
          nav_msgs::msg::Odometry gt_odom;
          // Use image timestamp so SLAM outputs remain time-aligned
          gt_odom.header.stamp = header.stamp;
@@ -756,8 +733,8 @@ void StereoMode::PublishMapToBaseLinkEstTF(const Sophus::SE3f& T_baselink_est2gz
 
     geometry_msgs::msg::TransformStamped tf;
     tf.header.stamp = stamp;
-    tf.header.frame_id = "odom";
-    tf.child_frame_id = "base_link_est";
+    tf.header.frame_id = worldGazeboFrameId_;
+    tf.child_frame_id = "baselinkOrb";
     
     tf.transform.translation.x = t.x();
     tf.transform.translation.y = t.y();
