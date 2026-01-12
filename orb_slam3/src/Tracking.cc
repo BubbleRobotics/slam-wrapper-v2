@@ -1728,14 +1728,17 @@ void Tracking::PreintegrateIMU()
 
     // Call a different constructor depending on whether the DVL is used or not
     if (this->mbUseDvl){
-        // Verbose::PrintMess("Used the cool new IMU-DVL-Preint constructor with Verbose!!!", Verbose::VERBOSITY_DEBUG)
+        // When the DVL is used, a different constructor for the IMU::Preintegrated object is 
+        // called that will also be passed the DVL measurements from the previous frame. According
+        // to the assumptions in AquaSlam, that is the DVL measurement that is to be used for pre-
+        // integrating and getting the DVL position delta.
         pImuPreintegratedFromLastFrame = new IMU::Preintegrated(
             mLastFrame.mImuBias,
             mCurrentFrame.mImuCalib,
             mDvlCalib.Cov(),
             mDvlCalib.R_ID(),
-            mLatestDvlPoint.v,
-            mLatestDvlPoint.t);
+            mCurrentFrame.mpPrevFrame->mLatestDvlPoint.v,
+            mCurrentFrame.mpPrevFrame->mLatestDvlPoint.t);
     }
     
     else {

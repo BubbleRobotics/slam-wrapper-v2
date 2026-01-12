@@ -5071,6 +5071,17 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, bool bRecInit)
     ei->setVertex(5, VV);
     optimizer.addEdge(ei);
 
+    EdgeDvlSingle* ed = nullptr;
+
+    if (pFrame->mbUseDvl){
+        EdgeDvlSingle* ed = new EdgeDvlSingle(
+            pFrame->mpImuPreintegratedFrame,
+            pFp->mLatestDvlPoint,
+            pFrame->mLatestDvlPoint
+        );
+    }
+
+
     EdgeGyroRW* egr = new EdgeGyroRW();
     egr->setVertex(0,VGk);
     egr->setVertex(1,VG);

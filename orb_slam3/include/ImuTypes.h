@@ -221,6 +221,10 @@ public:
     // DVL: assemble covariance matrix of residual
     Eigen::Matrix<float, 9, 9> GetDvlCov();
 
+    // DVL: get dPdvl since accessing it directly from the outside
+    // causes the internal compiler error
+    Eigen::Vector3f GetDvlPositionDelta();
+
 public:
     float dT;
     Eigen::Matrix<float,15,15> C;
@@ -246,6 +250,9 @@ public:
     Eigen::Vector3f dPdvl;
     Eigen::Matrix3f mLatestDvlVinImuFrameHat;
     Eigen::Matrix<float, 6, 6> SigmaS;
+
+    // Jacobian of position delta with respect to small gyroscope bias changes
+    Eigen::Matrix3f JPgDvl;
 
 private:
     // Updated bias

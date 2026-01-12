@@ -202,9 +202,10 @@ void Preintegrated::Initialize(const Bias &b_)
     dT=0.0f;
     mvMeasurements.clear();
 
-    // Reset also the new DVL position delta
+    // Reset also the new DVL related quantities
     dPdvl.setZero();
     SigmaS.setZero();
+    JPgDvl.setZero();
 }
 
 void Preintegrated::Reintegrate()
@@ -272,11 +273,15 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
     JVg = JVg - dR*dt*Wacc*JRg;
 
     // For the DVL
-    // Set up matrices for error propagation: everything that does 
-    // not depend on the current measurement
     if (mbUseDvl){
-        F.block<3, 3>(3, 0) = Eigen::Matrix3f::Identity(3, 3);
-        F.block<3, 3>(3, 3) = dR * mLatestDvlVinImuFrameHat * dt;
+        
+        // Update the bias Jacobiaan of the measured position delta
+        JPgDvl = JPgDvl - dR * mLatestDvlVinImuFrameHat * JRg * dt;
+
+        // Set up matrices for error propagation: everything that does 
+        // not depend on the current measurement
+        F.block<3, 3>(3, 3) = Eigen::Matrix3f::Identity(3, 3);
+        F.block<3, 3>(3, 0) = -1 * dR * mLatestDvlVinImuFrameHat * dt;
     }
 
     // Update delta rotation
@@ -291,7 +296,7 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
     // Set up matrices for error propagation: everything that *does* 
     // depend on the current measurement
     if (mbUseDvl){
-        F.block<3, 3>(0, 0) = A.block<3,3>(0,0);
+        F.block<3, 3>(0, 0) = dRi.deltaR.transpose();
         G.block<3, 3>(0, 0) = dRi.rightJ * dt;
     }
 
@@ -473,6 +478,12 @@ Eigen::Matrix<float,6,1> Preintegrated::GetDeltaBias()
 {
     std::unique_lock<std::mutex> lock(mMutex);
     return db;
+}
+
+// DVl: get dPdvl since accessing it directly from the outside
+// causes the internal compiler error
+Eigen::Vector3f Preintegrated::GetDvlPositionDelta(){
+    return dPdvl;
 }
 
 void Bias::CopyFrom(Bias &b)

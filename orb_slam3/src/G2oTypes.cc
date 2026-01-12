@@ -18,6 +18,7 @@
 
 #include "G2oTypes.h"
 #include "ImuTypes.h"
+#include "DvlTypes.h"
 #include "Converter.h"
 namespace ORB_SLAM3
 {
@@ -596,9 +597,13 @@ void EdgeInertial::linearizeOplus()
 
 // ---------- DVL ----------- //
 
-EdgeDvlSingle::EdgeDvlSingle(IMU::Preintegrated* pInt) 
+EdgeDvlSingle::EdgeDvlSingle(IMU::Preintegrated* pInt, const DVL::Point &vTildeI, const DVL::Point &vTildeJ) 
     : mpInt(pInt)
 {
+    // Set the measured vi and vj as members
+    mVTildeI = vTildeI;
+    mVTildeJ = vTildeJ;
+
     float x = 3;
     float y = 4;
     float z = x + y;
@@ -607,10 +612,36 @@ EdgeDvlSingle::EdgeDvlSingle(IMU::Preintegrated* pInt)
 }
 
 void EdgeDvlSingle::computeError(){
-    float x = 3;
-    float y = 4;
-    float z = x + y;
-    std::cout << "Hello, this body is not empty." << std::endl;
+
+    // ----------- GET THE OPTIMISATION VARIABLES ----------- //
+
+    // Position previous frame
+    const VertexPose* VP1 = static_cast<const VertexPose*>(_vertices[0]);
+
+    // Velocity previous frame
+    const VertexVelocity* VV1= static_cast<const VertexVelocity*>(_vertices[1]);
+
+    // Gyroscope bias (assumed constant between frames) -- needed to get the "measured" quantities
+    const VertexGyroBias* VG1= static_cast<const VertexGyroBias*>(_vertices[2]);
+
+    // Accelerometer bias (assumed constant between frames) -- needed to get the "measured" quantities
+    const VertexAccBias* VA1= static_cast<const VertexAccBias*>(_vertices[3]);
+
+    // Get the bias vector from the vertex objects (ba, bg)
+    const IMU::Bias b1(VA1->estimate()[0],VA1->estimate()[1],VA1->estimate()[2],VG1->estimate()[0],VG1->estimate()[1],VG1->estimate()[2]);
+
+    // Position constant frame
+    const VertexPose* VP2 = static_cast<const VertexPose*>(_vertices[4]);
+
+    // Velocity previous frame
+    const VertexVelocity* VV2 = static_cast<const VertexVelocity*>(_vertices[5]);
+
+    // ----------- GET THE "MEASUREMENTS" ----------- //
+
+    // Delta position from gyroscope and DVL
+    Eigen::Vector3f dpij = mpInt->GetDvlPositionDelta();
+
+    // ----------- COMPUTE VELOCITY RESIDUALS ----------- //
 }
 
 void EdgeDvlSingle::linearizeOplus(){

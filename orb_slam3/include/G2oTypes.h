@@ -551,7 +551,7 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
     // The IMU::Preintegrated object also computed the DVL residual when a DVL measurement was available
-    EdgeDvlSingle(IMU::Preintegrated* pInt);
+    EdgeDvlSingle(IMU::Preintegrated* pInt, const DVL::Point &vTildeI, const DVL::Point &vTildeJ);
 
     // Not using these virtual functions, but g2o requires they be overwritten
     virtual bool read(std::istream& is){return false;}
@@ -567,6 +567,10 @@ public:
 
 public:
     IMU::Preintegrated* mpInt;
+
+private:
+    DVL::Point mVTildeI;
+    DVL::Point mVTildeJ;
 };
 
 
