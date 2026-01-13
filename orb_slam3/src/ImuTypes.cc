@@ -482,11 +482,11 @@ Eigen::Matrix<float,6,1> Preintegrated::GetDeltaBias()
 
 // DVl: get dPdvl since accessing it directly from the outside
 // causes the internal compiler error
-Eigen::Vector3f Preintegrated::GetDvlPositionDelta(const Bias &b_){
+Eigen::Vector3f Preintegrated::GetDvlPositionDelta(const Eigen::Vector3d &b_){
     
     std::unique_lock<std::mutex> lock(mMutex);
     Eigen::Vector3f dbg;
-    dbg << b_.bwx - b.bwx, b_.bwy - b.bwy, b_.bwz - b.bwz;
+    dbg << b_[0] - b.bwx, b_[1] - b.bwy, b_[2] - b.bwz;
     return dPdvl + JPgDvl * dbg;
 }
 

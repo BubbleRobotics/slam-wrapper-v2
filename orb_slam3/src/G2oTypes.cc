@@ -603,12 +603,6 @@ EdgeDvlSingle::EdgeDvlSingle(IMU::Preintegrated* pInt, const DVL::Point &vTildeI
     // Set the measured vi and vj as members
     mVTildeI = vTildeI;
     mVTildeJ = vTildeJ;
-
-    float x = 3;
-    float y = 4;
-    float z = x + y;
-    std::cout << "Hello, this body is not empty." << std::endl;
-
 }
 
 void EdgeDvlSingle::computeError(){
@@ -624,17 +618,15 @@ void EdgeDvlSingle::computeError(){
     // Gyroscope bias (assumed constant between frames) -- needed to get the "measured" quantities
     const VertexGyroBias* VG1= static_cast<const VertexGyroBias*>(_vertices[2]);
 
-    // Accelerometer bias (assumed constant between frames) -- needed to get the "measured" quantities
-    const VertexAccBias* VA1= static_cast<const VertexAccBias*>(_vertices[3]);
-
     // Create a bias object from the vertices
-    const IMU::Bias b1(VA1->estimate()[0],VA1->estimate()[1],VA1->estimate()[2],VG1->estimate()[0],VG1->estimate()[1],VG1->estimate()[2]);
+    Eigen::Vector3d b1(VG1->estimate()[0],VG1->estimate()[1],VG1->estimate()[2]);
+    // const IMU::Bias b1(VA1->estimate()[0],VA1->estimate()[1],VA1->estimate()[2],VG1->estimate()[0],VG1->estimate()[1],VG1->estimate()[2]);
 
     // Position constant frame
-    const VertexPose* VP2 = static_cast<const VertexPose*>(_vertices[4]);
+    const VertexPose* VP2 = static_cast<const VertexPose*>(_vertices[3]);
 
-    // Velocity previous frame
-    const VertexVelocity* VV2 = static_cast<const VertexVelocity*>(_vertices[5]);
+    // Velocity previous framer_vj / delta_phi_i
+    const VertexVelocity* VV2 = static_cast<const VertexVelocity*>(_vertices[4]);
 
     // ----------- GET "MEASUREMENTS" AND EXTRINSIC PARAMETERS ----------- //
 
@@ -645,7 +637,7 @@ void EdgeDvlSingle::computeError(){
     Eigen::Matrix3d Rid = Tid.rotationMatrix().cast<double>();
     Eigen::Vector3d itid = Tid.translation().cast<double>();
 
-    // ----------- COMPUTE VELOCITY RESIDUALS ----------- //
+    // ----------- COMPUTE RESIDUALS ----------- //
 
     Eigen::Vector3d rvi = mVTildeI.v.cast<double>() - Rid.transpose() * VV1->estimate();
     Eigen::Vector3d rvj = mVTildeJ.v.cast<double>() - Rid.transpose() * VV2->estimate();
@@ -654,14 +646,79 @@ void EdgeDvlSingle::computeError(){
     Eigen::Vector3d pjMinuspi = VP2->estimate().twb - VP1->estimate().twb;
     Eigen::Vector3d rpij = dpij - VP1->estimate().Rwb.transpose() * (pjMinuspi + RjMinusRi * itid);
 
-    // std::cout << "Got this vector for the "
+    // std::cout << "DVL pos. residaul: \n";
+    // std::cout << rpij << "\n" << std::endl;
+
+    _error << rvi, rvj, rpij;
 }
 
 void EdgeDvlSingle::linearizeOplus(){
-    float x = 3;
-    float y = 4;
-    float z = x + y;
-    std::cout << "Hello, this body is not empty." << std::endl;
+    
+    // ---------- GET VARIABLES ---------- //
+
+    const VertexPose* VP1 = static_cast<const VertexPose*>(_vertices[0]);
+    const VertexVelocity* VV1= static_cast<const VertexVelocity*>(_vertices[1]);
+    const VertexGyroBias* VG1= static_cast<const VertexGyroBias*>(_vertices[2]);
+    const VertexAccBias* VA1= static_cast<const VertexAccBias*>(_vertices[3]);
+    const VertexPose* VP2 = static_cast<const VertexPose*>(_vertices[4]);
+    const VertexVelocity* VV2= static_cast<const VertexVelocity*>(_vertices[5]);
+    const IMU::Bias b1(VA1->estimate()[0],VA1->estimate()[1],VA1->estimate()[2],VG1->estimate()[0],VG1->estimate()[1],VG1->estimate()[2]);
+    const IMU::Bias db = mpInt->GetDeltaBias(b1);
+    Eigen::Vector3d dbg;
+    dbg << db.bwx, db.bwy, db.bwz;
+
+    Sophus::SE3f Tid = DVL::Calib::Tid;
+    Eigen::Matrix3d Rid = Tid.rotationMatrix().cast<double>();
+    Eigen::Vector3d itid = Tid.translation().cast<double>();
+    Eigen::Matrix3d Ri = VP1->estimate().Rwb;
+    Eigen::Matrix3d Rj = VP2->estimate().Rwb;
+    Eigen::Vector3d pi = VP1->estimate().twb;
+    Eigen::Vector3d pj = VP2->estimate().twb;
+
+    // ---------- COMPUTE JACOBIANS ---------- //
+
+    // ----- POSE i ----- //
+
+    _jacobianOplus[0].setZero();
+
+    // r_vi / delta_phi_i
+    _jacobianOplus[0].block<3,3>(0, 0) = -Rid.transpose() * Sophus::SO3d::hat(Ri.transpose() * VV1->estimate());
+    // r_pij / delta_phi_i
+    _jacobianOplus[0].block<3,3>(6, 0) = Sophus::SO3d::hat(Ri.transpose() * (pi - pj - Rj * itid));
+    // r_pij / delta_pi
+    _jacobianOplus[0].block<3,3>(6, 3) = Eigen::MatrixXd::Identity(3, 3);
+
+    // ----- VELOCITY i ----- //
+
+    _jacobianOplus[1].setZero();
+
+    // r_vi / delta_vi
+    _jacobianOplus[1].block<3,3>(0, 0) = -Rid.transpose() * Ri.transpose();
+
+    // ----- BIAS delta_b^i_g ----- //
+
+    _jacobianOplus[2].setZero();
+
+    // r_pij / delta_tilde_b^i_g
+    _jacobianOplus[2].block<3,3>(6, 0) = mpInt->JPgDvl.cast<double>();
+
+    // ----- POSE j ----- //
+
+    _jacobianOplus[3].setZero();
+
+    // r_vj / delta_phi_j
+    _jacobianOplus[3].block<3,3>(3, 0) = -Rid.transpose() * Sophus::SO3d::hat(Rj.transpose() * VV2->estimate());
+    // r_pij / delta_phi_j
+    _jacobianOplus[3].block<3,3>(6, 0) = Ri.transpose() * Rj * Sophus::SO3d::hat(itid);
+    // r_pij / delta_pj
+    _jacobianOplus[3].block<3,3>(6, 3) = Ri.transpose() * Rj;
+
+    // ----- VELOCITY j ----- //
+
+    _jacobianOplus[4].setZero();
+
+    // r_vj / delta_vj
+    _jacobianOplus[3].block<3,3>(3, 0) = -Rid.transpose() * Rj.transpose();
 }
 
 

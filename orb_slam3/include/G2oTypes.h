@@ -562,7 +562,7 @@ public:
     void computeError();
 
     // Overwrtiting the function to compute the Jacobians of the residual vector with respect to all the 
-    // optimisation variables 
+    // Gauss-Newton optimisation variables 
     virtual void linearizeOplus();
 
 public:

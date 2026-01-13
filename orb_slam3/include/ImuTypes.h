@@ -222,7 +222,7 @@ public:
     Eigen::Matrix<float, 9, 9> GetDvlCov();
 
     // DVL: get dPdvl with the first order-correction of the bias if it changed
-    Eigen::Vector3f GetDvlPositionDelta(const Bias &b_);
+    Eigen::Vector3f GetDvlPositionDelta(const Eigen::Vector3d &b_);
 
 public:
     float dT;
