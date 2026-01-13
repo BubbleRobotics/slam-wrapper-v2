@@ -44,7 +44,12 @@ class Calib{
 
         // Rotation matrix transforming vectors in the DVL frame to vectors in the IMU body frame.
         static Sophus::SO3f mRid;
-    
+
+    public:
+
+         static Sophus::SE3f Tic; 
+         static Sophus::SE3f Tdc;
+        
     public:
 
         // Default constructor
