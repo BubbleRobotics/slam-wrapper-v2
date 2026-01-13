@@ -603,6 +603,21 @@ EdgeDvlSingle::EdgeDvlSingle(IMU::Preintegrated* pInt, const DVL::Point &vTildeI
     // Set the measured vi and vj as members
     mVTildeI = vTildeI;
     mVTildeJ = vTildeJ;
+
+    // Set the the covariance matrix that was computed iteratively in the Preintegrated object
+    Matrix9d Info = mpInt->GetDvlCov().cast<double>();
+
+    // Ensure symmetry
+    Info = (Info+Info.transpose())/2;
+
+    // Ensure positive-definiteness
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double,9,9> > es(Info);
+    Eigen::Matrix<double,9,1> eigs = es.eigenvalues();
+    for(int i=0;i<9;i++)
+        if(eigs[i]<1e-12)
+            eigs[i]=0;
+    Info = es.eigenvectors()*eigs.asDiagonal()*es.eigenvectors().transpose();
+    setInformation(Info);
 }
 
 void EdgeDvlSingle::computeError(){
@@ -611,20 +626,14 @@ void EdgeDvlSingle::computeError(){
 
     // Position previous frame
     const VertexPose* VP1 = static_cast<const VertexPose*>(_vertices[0]);
-
     // Velocity previous frame
     const VertexVelocity* VV1= static_cast<const VertexVelocity*>(_vertices[1]);
-
     // Gyroscope bias (assumed constant between frames) -- needed to get the "measured" quantities
     const VertexGyroBias* VG1= static_cast<const VertexGyroBias*>(_vertices[2]);
-
     // Create a bias object from the vertices
     Eigen::Vector3d b1(VG1->estimate()[0],VG1->estimate()[1],VG1->estimate()[2]);
-    // const IMU::Bias b1(VA1->estimate()[0],VA1->estimate()[1],VA1->estimate()[2],VG1->estimate()[0],VG1->estimate()[1],VG1->estimate()[2]);
-
     // Position constant frame
     const VertexPose* VP2 = static_cast<const VertexPose*>(_vertices[3]);
-
     // Velocity previous framer_vj / delta_phi_i
     const VertexVelocity* VV2 = static_cast<const VertexVelocity*>(_vertices[4]);
 
