@@ -52,6 +52,7 @@ Sophus::SE3f Calib::Tdc = toSE3(
     ).finished()
 );
 
+Sophus::SE3f Calib::Tid = Calib::Tic * Calib::Tdc.inverse();
 
 }
 

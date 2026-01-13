@@ -640,8 +640,10 @@ void EdgeDvlSingle::computeError(){
 
     // Delta position from gyroscope and DVL
     Eigen::Vector3f dpij = mpInt->GetDvlPositionDelta();
+    Sophus::SE3f Tid = DVL::Calib::Tid;
     // Rotation matrix R_id (DVL to IMU vector)
-    Eigen::Matrix3d Rid = DVL::Calib::R_ID().matrix().cast<double>();
+    // Eigen::Matrix3d Rid = DVL::Calib::R_ID().matrix().cast<double>();
+    Eigen::Matrix3d Rid = Tid.rotationMatrix().cast<double>();
 
     // ----------- COMPUTE VELOCITY RESIDUALS ----------- //
 

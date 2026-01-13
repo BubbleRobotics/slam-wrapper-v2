@@ -49,6 +49,7 @@ class Calib{
 
          static Sophus::SE3f Tic; 
          static Sophus::SE3f Tdc;
+         static Sophus::SE3f Tid;
         
     public:
 

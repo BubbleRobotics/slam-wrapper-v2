@@ -5079,6 +5079,13 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, bool bRecInit)
             pFp->mLatestDvlPoint,
             pFrame->mLatestDvlPoint
         );
+            ed->setVertex(0, VPk);
+            ed->setVertex(1, VVk);
+            ed->setVertex(2, VGk);
+            ed->setVertex(3, VAk);
+            ed->setVertex(4, VP);
+            ed->setVertex(5, VV);
+            optimizer.addEdge(ed);
     }
 
 
