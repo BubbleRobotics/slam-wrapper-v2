@@ -636,12 +636,18 @@ void EdgeDvlSingle::computeError(){
     // Velocity previous frame
     const VertexVelocity* VV2 = static_cast<const VertexVelocity*>(_vertices[5]);
 
-    // ----------- GET THE "MEASUREMENTS" ----------- //
+    // ----------- GET "MEASUREMENTS" AND EXTRINSIC PARAMETERS ----------- //
 
     // Delta position from gyroscope and DVL
     Eigen::Vector3f dpij = mpInt->GetDvlPositionDelta();
+    // Rotation matrix R_id (DVL to IMU vector)
+    Eigen::Matrix3d Rid = DVL::Calib::R_ID().matrix().cast<double>();
 
     // ----------- COMPUTE VELOCITY RESIDUALS ----------- //
+
+    Eigen::Vector3d rvi = mVTildeI.v.cast<double>() - Rid.transpose() * VV1->estimate();
+    Eigen::Vector3d rvj = mVTildeJ.v.cast<double>() - Rid.transpose() * VV2->estimate();
+
 }
 
 void EdgeDvlSingle::linearizeOplus(){
