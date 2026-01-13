@@ -627,7 +627,7 @@ void EdgeDvlSingle::computeError(){
     // Accelerometer bias (assumed constant between frames) -- needed to get the "measured" quantities
     const VertexAccBias* VA1= static_cast<const VertexAccBias*>(_vertices[3]);
 
-    // Get the bias vector from the vertex objects (ba, bg)
+    // Create a bias object from the vertices
     const IMU::Bias b1(VA1->estimate()[0],VA1->estimate()[1],VA1->estimate()[2],VG1->estimate()[0],VG1->estimate()[1],VG1->estimate()[2]);
 
     // Position constant frame
@@ -639,10 +639,9 @@ void EdgeDvlSingle::computeError(){
     // ----------- GET "MEASUREMENTS" AND EXTRINSIC PARAMETERS ----------- //
 
     // Delta position from gyroscope and DVL
-    Eigen::Vector3f dpij = mpInt->GetDvlPositionDelta();
+    Eigen::Vector3f dpij = mpInt->GetDvlPositionDelta(b1);
+    
     Sophus::SE3f Tid = DVL::Calib::Tid;
-    // Rotation matrix R_id (DVL to IMU vector)
-    // Eigen::Matrix3d Rid = DVL::Calib::R_ID().matrix().cast<double>();
     Eigen::Matrix3d Rid = Tid.rotationMatrix().cast<double>();
 
     // ----------- COMPUTE VELOCITY RESIDUALS ----------- //
