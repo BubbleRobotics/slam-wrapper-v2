@@ -639,16 +639,22 @@ void EdgeDvlSingle::computeError(){
     // ----------- GET "MEASUREMENTS" AND EXTRINSIC PARAMETERS ----------- //
 
     // Delta position from gyroscope and DVL
-    Eigen::Vector3f dpij = mpInt->GetDvlPositionDelta(b1);
+    Eigen::Vector3d dpij = mpInt->GetDvlPositionDelta(b1).cast<double>();
     
     Sophus::SE3f Tid = DVL::Calib::Tid;
     Eigen::Matrix3d Rid = Tid.rotationMatrix().cast<double>();
+    Eigen::Vector3d itid = Tid.translation().cast<double>();
 
     // ----------- COMPUTE VELOCITY RESIDUALS ----------- //
 
     Eigen::Vector3d rvi = mVTildeI.v.cast<double>() - Rid.transpose() * VV1->estimate();
     Eigen::Vector3d rvj = mVTildeJ.v.cast<double>() - Rid.transpose() * VV2->estimate();
 
+    Eigen::Matrix3d RjMinusRi = VP2->estimate().Rwb - VP1->estimate().Rwb;
+    Eigen::Vector3d pjMinuspi = VP2->estimate().twb - VP1->estimate().twb;
+    Eigen::Vector3d rpij = dpij - VP1->estimate().Rwb.transpose() * (pjMinuspi + RjMinusRi * itid);
+
+    // std::cout << "Got this vector for the "
 }
 
 void EdgeDvlSingle::linearizeOplus(){
