@@ -565,6 +565,21 @@ public:
     // Gauss-Newton optimisation variables 
     virtual void linearizeOplus();
 
+    // Method for computing the Hessian matrix of this edge. Like EdgeInertial, but since the accelerometer
+    // bias does not influence the value of the DVL residual, there is a zero-matrix at its position.
+    // Note how _jacobianOplus refers to Jacobian matrices computed by linearizeOplus()
+    Eigen::Matrix<double,24,24> GetHessian(){
+        linearizeOplus();
+        Eigen::Matrix<double,9,24> J;
+        J.block<9,6>(0,0) = _jacobianOplus[0];
+        J.block<9,3>(0,6) = _jacobianOplus[1];
+        J.block<9,3>(0,9) = _jacobianOplus[2];
+        J.block<9,3>(0,12) = Eigen::Matrix<double, 9, 3>::Zero();
+        J.block<9,6>(0,15) = _jacobianOplus[3];
+        J.block<9,3>(0,21) = _jacobianOplus[4];
+        return J.transpose()*information()*J;
+    }
+
 public:
     IMU::Preintegrated* mpInt;
 

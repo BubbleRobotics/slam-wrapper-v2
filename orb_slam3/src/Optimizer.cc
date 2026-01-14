@@ -5082,9 +5082,8 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, bool bRecInit)
             ed->setVertex(0, VPk);
             ed->setVertex(1, VVk);
             ed->setVertex(2, VGk);
-            ed->setVertex(3, VAk);
-            ed->setVertex(4, VP);
-            ed->setVertex(5, VV);
+            ed->setVertex(3, VP);
+            ed->setVertex(4, VV);
             optimizer.addEdge(ed);
     }
 
@@ -5258,6 +5257,8 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, bool bRecInit)
     H.setZero();
 
     H.block<24,24>(0,0)+= ei->GetHessian();
+
+    if (pFrame->mbUseDvl) H.block<24,24>(0,0)+= ed->GetHessian();
 
     Eigen::Matrix<double,6,6> Hgr = egr->GetHessian();
     H.block<3,3>(9,9) += Hgr.block<3,3>(0,0);
