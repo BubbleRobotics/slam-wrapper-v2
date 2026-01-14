@@ -532,6 +532,7 @@ void Optimizer::FullInertialBA(Map *pMap, int its, const bool bFixLocal, const l
                 }
 
                 EdgeInertial* ei = new EdgeInertial(pKFi->mpImuPreintegrated);
+                ei->resize(6);
                 ei->setVertex(0,dynamic_cast<g2o::OptimizableGraph::Vertex*>(VP1));
                 ei->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(VV1));
                 ei->setVertex(2,dynamic_cast<g2o::OptimizableGraph::Vertex*>(VG1));
@@ -2623,6 +2624,7 @@ void Optimizer::LocalInertialBA(KeyFrame *pKF, bool *pbStopFlag, Map *pMap, int&
             }
 
             vei[i] = new EdgeInertial(pKFi->mpImuPreintegrated);
+            vei[i]->resize(6);
 
             vei[i]->setVertex(0,dynamic_cast<g2o::OptimizableGraph::Vertex*>(VP1));
             vei[i]->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(VV1));
@@ -3164,6 +3166,7 @@ void Optimizer::InertialOptimization(Map *pMap, Eigen::Matrix3d &Rwg, double &sc
                 continue;
             }
             EdgeInertialGS* ei = new EdgeInertialGS(pKFi->mpImuPreintegrated);
+            ei->resize(8);
             ei->setVertex(0,dynamic_cast<g2o::OptimizableGraph::Vertex*>(VP1));
             ei->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(VV1));
             ei->setVertex(2,dynamic_cast<g2o::OptimizableGraph::Vertex*>(VG));
@@ -3335,6 +3338,7 @@ void Optimizer::InertialOptimization(Map *pMap, Eigen::Vector3d &bg, Eigen::Vect
                 continue;
             }
             EdgeInertialGS* ei = new EdgeInertialGS(pKFi->mpImuPreintegrated);
+            ei->resize(8);
             ei->setVertex(0,dynamic_cast<g2o::OptimizableGraph::Vertex*>(VP1));
             ei->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(VV1));
             ei->setVertex(2,dynamic_cast<g2o::OptimizableGraph::Vertex*>(VG));
@@ -3473,6 +3477,7 @@ void Optimizer::InertialOptimization(Map *pMap, Eigen::Matrix3d &Rwg, double &sc
             }
             count_edges++;
             EdgeInertialGS* ei = new EdgeInertialGS(pKFi->mpImuPreintegrated);
+            ei->resize(8);
             ei->setVertex(0,dynamic_cast<g2o::OptimizableGraph::Vertex*>(VP1));
             ei->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(VV1));
             ei->setVertex(2,dynamic_cast<g2o::OptimizableGraph::Vertex*>(VG));
@@ -4221,6 +4226,7 @@ void Optimizer::MergeInertialBA(KeyFrame* pCurrKF, KeyFrame* pMergeKF, bool *pbS
             }
 
             vei[i] = new EdgeInertial(pKFi->mpImuPreintegrated);
+            vei[i]->resize(6);
 
             vei[i]->setVertex(0,dynamic_cast<g2o::OptimizableGraph::Vertex*>(VP1));
             vei[i]->setVertex(1,dynamic_cast<g2o::OptimizableGraph::Vertex*>(VV1));
@@ -4676,6 +4682,7 @@ int Optimizer::PoseInertialOptimizationLastKeyFrame(Frame *pFrame, bool bRecInit
     optimizer.addVertex(VAk);
 
     EdgeInertial* ei = new EdgeInertial(pFrame->mpImuPreintegrated);
+    ei->resize(6);
 
     ei->setVertex(0, VPk);
     ei->setVertex(1, VVk);
@@ -5062,6 +5069,7 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, bool bRecInit)
     optimizer.addVertex(VAk);
 
     EdgeInertial* ei = new EdgeInertial(pFrame->mpImuPreintegratedFrame);
+    ei->resize(6);
 
     ei->setVertex(0, VPk);
     ei->setVertex(1, VVk);
@@ -5074,17 +5082,18 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, bool bRecInit)
     EdgeDvlSingle* ed = nullptr;
 
     if (pFrame->mbUseDvl){
-        EdgeDvlSingle* ed = new EdgeDvlSingle(
+        ed = new EdgeDvlSingle(
             pFrame->mpImuPreintegratedFrame,
             pFp->mLatestDvlPoint,
             pFrame->mLatestDvlPoint
         );
-            ed->setVertex(0, VPk);
-            ed->setVertex(1, VVk);
-            ed->setVertex(2, VGk);
-            ed->setVertex(3, VP);
-            ed->setVertex(4, VV);
-            optimizer.addEdge(ed);
+        ed->resize(5);
+        ed->setVertex(0, VPk);
+        ed->setVertex(1, VVk);
+        ed->setVertex(2, VGk);
+        ed->setVertex(3, VP);
+        ed->setVertex(4, VV);
+        optimizer.addEdge(ed);
     }
 
 

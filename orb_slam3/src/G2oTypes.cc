@@ -494,8 +494,6 @@ EdgeInertial::EdgeInertial(IMU::Preintegrated *pInt):JRg(pInt->JRg.cast<double>(
     JVg(pInt->JVg.cast<double>()), JPg(pInt->JPg.cast<double>()), JVa(pInt->JVa.cast<double>()),
     JPa(pInt->JPa.cast<double>()), mpInt(pInt), dt(pInt->dT)
 {
-    // This edge links 6 vertices
-    resize(6);
     g << 0, 0, -IMU::GRAVITY_VALUE;
 
     Matrix9d Info = pInt->C.block<9,9>(0,0).cast<double>().inverse();
@@ -530,6 +528,8 @@ void EdgeInertial::computeError()
     const Eigen::Vector3d ev = VP1->estimate().Rwb.transpose()*(VV2->estimate() - VV1->estimate() - g*dt) - dV;
     const Eigen::Vector3d ep = VP1->estimate().Rwb.transpose()*(VP2->estimate().twb - VP1->estimate().twb
                                                                - VV1->estimate()*dt - g*dt*dt/2) - dP;
+
+    std::cout << "EdgeInertial computeError() called" << std::endl;
 
     _error << er, ev, ep;
 }
@@ -600,6 +600,9 @@ void EdgeInertial::linearizeOplus()
 EdgeDvlSingle::EdgeDvlSingle(IMU::Preintegrated* pInt, const DVL::Point &vTildeI, const DVL::Point &vTildeJ) 
     : mpInt(pInt)
 {
+    // This edge holds 5 vertices (NOT 6 - no acceleration bias)
+    // NOTE: resize() is called in Optimizer.cc AFTER edge is created, not here
+
     // Set the measured vi and vj as members
     mVTildeI = vTildeI;
     mVTildeJ = vTildeJ;
@@ -655,7 +658,7 @@ void EdgeDvlSingle::computeError(){
     Eigen::Vector3d pjMinuspi = VP2->estimate().twb - VP1->estimate().twb;
     Eigen::Vector3d rpij = dpij - VP1->estimate().Rwb.transpose() * (pjMinuspi + RjMinusRi * itid);
 
-    std::cout << "DVL pos. residaul: \n";
+    std::cout << "DVL pos. residual: \n";
     std::cout << rpij << "\n" << std::endl;
 
     _error << rvi, rvj, rpij;
@@ -664,17 +667,13 @@ void EdgeDvlSingle::computeError(){
 void EdgeDvlSingle::linearizeOplus(){
     
     // ---------- GET VARIABLES ---------- //
+    // Note: EdgeDvlSingle has 5 vertices: VP1, VV1, VG1, VP2, VV2 (NO acceleration bias)
 
     const VertexPose* VP1 = static_cast<const VertexPose*>(_vertices[0]);
     const VertexVelocity* VV1= static_cast<const VertexVelocity*>(_vertices[1]);
     const VertexGyroBias* VG1= static_cast<const VertexGyroBias*>(_vertices[2]);
-    const VertexAccBias* VA1= static_cast<const VertexAccBias*>(_vertices[3]);
-    const VertexPose* VP2 = static_cast<const VertexPose*>(_vertices[4]);
-    const VertexVelocity* VV2= static_cast<const VertexVelocity*>(_vertices[5]);
-    const IMU::Bias b1(VA1->estimate()[0],VA1->estimate()[1],VA1->estimate()[2],VG1->estimate()[0],VG1->estimate()[1],VG1->estimate()[2]);
-    const IMU::Bias db = mpInt->GetDeltaBias(b1);
-    Eigen::Vector3d dbg;
-    dbg << db.bwx, db.bwy, db.bwz;
+    const VertexPose* VP2 = static_cast<const VertexPose*>(_vertices[3]);
+    const VertexVelocity* VV2= static_cast<const VertexVelocity*>(_vertices[4]);
 
     Sophus::SE3f Tid = DVL::Calib::Tid;
     Eigen::Matrix3d Rid = Tid.rotationMatrix().cast<double>();
@@ -727,7 +726,7 @@ void EdgeDvlSingle::linearizeOplus(){
     _jacobianOplus[4].setZero();
 
     // r_vj / delta_vj
-    _jacobianOplus[3].block<3,3>(3, 0) = -Rid.transpose() * Rj.transpose();
+    _jacobianOplus[4].block<3,3>(3, 0) = -Rid.transpose() * Rj.transpose();
 }
 
 
@@ -735,8 +734,7 @@ EdgeInertialGS::EdgeInertialGS(IMU::Preintegrated *pInt):JRg(pInt->JRg.cast<doub
     JVg(pInt->JVg.cast<double>()), JPg(pInt->JPg.cast<double>()), JVa(pInt->JVa.cast<double>()),
     JPa(pInt->JPa.cast<double>()), mpInt(pInt), dt(pInt->dT)
 {
-    // This edge links 8 vertices
-    resize(8);
+    // NOTE: resize(8) is called in Optimizer.cc AFTER edge is created, not here
     gI << 0, 0, -IMU::GRAVITY_VALUE;
 
     Matrix9d Info = pInt->C.block<9,9>(0,0).cast<double>().inverse();
