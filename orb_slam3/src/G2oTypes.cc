@@ -529,8 +529,6 @@ void EdgeInertial::computeError()
     const Eigen::Vector3d ep = VP1->estimate().Rwb.transpose()*(VP2->estimate().twb - VP1->estimate().twb
                                                                - VV1->estimate()*dt - g*dt*dt/2) - dP;
 
-    std::cout << "EdgeInertial computeError() called" << std::endl;
-
     _error << er, ev, ep;
 }
 
@@ -657,9 +655,6 @@ void EdgeDvlSingle::computeError(){
     Eigen::Matrix3d RjMinusRi = VP2->estimate().Rwb - VP1->estimate().Rwb;
     Eigen::Vector3d pjMinuspi = VP2->estimate().twb - VP1->estimate().twb;
     Eigen::Vector3d rpij = dpij - VP1->estimate().Rwb.transpose() * (pjMinuspi + RjMinusRi * itid);
-
-    std::cout << "DVL pos. residual: \n";
-    std::cout << rpij << "\n" << std::endl;
 
     _error << rvi, rvj, rpij;
 }

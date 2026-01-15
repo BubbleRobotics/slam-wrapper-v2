@@ -1553,7 +1553,7 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
     vdStereoMatch_ms.push_back(mCurrentFrame.mTimeStereoMatch);
 #endif
 
-    //cout << "Tracking start" << endl;
+    cout << "Tracking start with IMU queue of length: " << mlQueueImuData.size() << endl;
     Track();
     //cout << "Tracking end" << endl;
 

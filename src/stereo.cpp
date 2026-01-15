@@ -90,7 +90,9 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
     }
 
     // subscribe to DVL
-    dvlSub_ = this->create_subscription<dvl_msgs::msg::DVL>(dvlTopic, rclcpp::SensorDataQoS(), std::bind(&StereoMode::DvlCallback, this, std::placeholders::_1));
+    rclcpp::SensorDataQoS qos_profile;
+    // qos_profile.keep_last(100);
+    dvlSub_ = this->create_subscription<sensors_msgs::msg::DVL>(dvlTopic, qos_profile, std::bind(&StereoMode::DvlCallback, this, std::placeholders::_1));
 
     // Create publishers
     posePub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
@@ -294,16 +296,19 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
     }
 }
 
-void StereoMode::DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg){
+void StereoMode::DvlCallback(const sensors_msgs::msg::DVL::ConstSharedPtr &msg){
     // The timestamp of the message
     double t = msg->header.stamp.sec + msg->header.stamp.nanosec * 1e-9;
 
     ORB_SLAM3::DVL::Point p(msg->velocity.x, msg->velocity.y, msg->velocity.z, t);
 
+    // std::cout << "Got this DVL message \n";
+    // std::cout << msg->velocity.x << " " << msg->velocity.y << " " << msg->velocity.z << "\n" << std::endl;
+
     // Hand measurement point to Tracking object
     pAgent->TrackDvl(p);
 
-    RCLCPP_INFO(this->get_logger(), "Called DvlCallback");
+    // RCLCPP_INFO(this->get_logger(), "Called DvlCallback");
 }
 
 void StereoMode::ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)

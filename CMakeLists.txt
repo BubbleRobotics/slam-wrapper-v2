@@ -31,6 +31,7 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(dvl_msgs REQUIRED)  # DVL messages
+find_package(sensors_msgs REQUIRED)  # sensors_msgs version of DVL messages
 
 
 # Header file locations [C++ node]
@@ -69,6 +70,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   tf2_geometry_msgs
   cv_bridge
   dvl_msgs
+  sensors_msgs
 )
 
 #* ORB SLAM3 as a shared library

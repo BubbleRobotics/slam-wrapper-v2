@@ -39,6 +39,7 @@
 #include <std_msgs/msg/string.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include "sensor_msgs/msg/image.hpp"
+#include <sensors_msgs/msg/dvl.hpp>  // include the custom DVL message that seems to work better with ros2 bag play than dvl_msgs/msg/dvl.hpp
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
@@ -110,7 +111,7 @@ class StereoMode : public rclcpp::Node
         std::shared_ptr<message_filters::Synchronizer<ImgSyncPolicy>> sync_;
 
         rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imuSub_; // Subscriber to receive IMU messages
-        rclcpp::Subscription<dvl_msgs::msg::DVL>::SharedPtr dvlSub_;  // Subscriber DVL messages
+        rclcpp::Subscription<sensors_msgs::msg::DVL>::SharedPtr dvlSub_;  // Subscriber DVL messages
 
         rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr posePub_;
         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odomPub_;
@@ -169,7 +170,7 @@ class StereoMode : public rclcpp::Node
         void StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &left_img,
                              const sensor_msgs::msg::Image::ConstSharedPtr &right_img);
         void ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg); // Callback to process IMU data sent by Python node
-        void DvlCallback(const dvl_msgs::msg::DVL::ConstSharedPtr &msg);
+        void DvlCallback(const sensors_msgs::msg::DVL::ConstSharedPtr &msg);
         
         bool InitImuCamTransform(); //* Method to initialize the transform between IMU and camera frames
 
