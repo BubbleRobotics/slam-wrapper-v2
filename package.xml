@@ -26,6 +26,8 @@
   <build_depend>libboost-serialization-dev</build_depend>
   <build_depend>libboost-filesystem-dev</build_depend>
 
+  <build_depend>sensors_msgs</build_depend> <!-- for the dvl -->
+
   <!-- As suggested by the official tutorial, add your custom message interfaces as follows -->
   <!-- <depend>your_custom_msg_interface</depend>  -->
   
@@ -43,6 +45,8 @@
   <exec_depend>libboost-system-dev</exec_depend>
   <exec_depend>libboost-serialization-dev</exec_depend>
   <exec_depend>libboost-filesystem-dev</exec_depend>
+
+  <exec_depend>sensors_msgs</exec_depend> <!-- For the DVL -->
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
