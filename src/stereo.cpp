@@ -91,7 +91,7 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
 
     // subscribe to DVL
     rclcpp::SensorDataQoS qos_profile;
-    // qos_profile.keep_last(100);
+    qos_profile.keep_last(40);
     dvlSub_ = this->create_subscription<sensors_msgs::msg::DVL>(dvlTopic, qos_profile, std::bind(&StereoMode::DvlCallback, this, std::placeholders::_1));
 
     // Create publishers

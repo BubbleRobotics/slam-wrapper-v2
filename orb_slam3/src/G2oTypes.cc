@@ -656,6 +656,9 @@ void EdgeDvlSingle::computeError(){
     Eigen::Vector3d pjMinuspi = VP2->estimate().twb - VP1->estimate().twb;
     Eigen::Vector3d rpij = dpij - VP1->estimate().Rwb.transpose() * (pjMinuspi + RjMinusRi * itid);
 
+    // std::cout << "Called DVL compute error \n";
+    // std::cout << "rpij: [" << rpij[0] << " " << rpij[1] << " " << rpij[2] << "]" << std::endl;
+
     _error << rvi, rvj, rpij;
 }
 

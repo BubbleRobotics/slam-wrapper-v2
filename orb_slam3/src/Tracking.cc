@@ -1692,7 +1692,7 @@ void Tracking::PreintegrateIMU()
             if(!mlQueueImuData.empty())
             {
                 IMU::Point* m = &mlQueueImuData.front();
-                cout.precision(17);
+                // cout.precision(17);
                 if(m->t<mCurrentFrame.mpPrevFrame->mTimeStamp-mImuPer)
                 {
                     mlQueueImuData.pop_front();
@@ -1723,6 +1723,8 @@ void Tracking::PreintegrateIMU()
         cout << "Empty IMU measurements vector!!!\n";
         return;
     }
+
+    // cout << "Measurements pushed into mvImuFromLastFrame: " << mvImuFromLastFrame.size() << std::endl;
 
     IMU::Preintegrated* pImuPreintegratedFromLastFrame = nullptr;
 

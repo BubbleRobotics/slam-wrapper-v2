@@ -126,10 +126,20 @@ void LocalMapping::Run()
                 if(mpAtlas->KeyFramesInMap()>2)
                 {
 
+                    // Debugging the reasons for LocalMap resets with "bad IMU"
+                    // std::cout << std::boolalpha;
+                    // std::cout << "mpCurrentKeyFrame->GetMap()->isImuInitialized(): " << mpCurrentKeyFrame->GetMap()->isImuInitialized() << "\n";
+                    // std::cout << "!mpCurrentKeyFrame->GetMap()->GetIniertialBA2(): " << (!mpCurrentKeyFrame->GetMap()->GetIniertialBA2()) << "\n";
+                    // std::cout << "mTinit: " << mTinit << "\n";
+                    
+                    // std::cout << std::noboolalpha;
+
                     if(mbInertial && mpCurrentKeyFrame->GetMap()->isImuInitialized())
                     {
                         float dist = (mpCurrentKeyFrame->mPrevKF->GetCameraCenter() - mpCurrentKeyFrame->GetCameraCenter()).norm() +
                                 (mpCurrentKeyFrame->mPrevKF->mPrevKF->GetCameraCenter() - mpCurrentKeyFrame->mPrevKF->GetCameraCenter()).norm();
+
+                        // std::cout << "dist: " << dist << std::endl;
 
                         if(dist>0.05)
                             mTinit += mpCurrentKeyFrame->mTimeStamp - mpCurrentKeyFrame->mPrevKF->mTimeStamp;
