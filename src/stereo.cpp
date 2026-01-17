@@ -236,64 +236,46 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
         t = this->now().seconds();
     }
 
-
-    // T_orbcam2orbw: points in camera frame to orb world frame
-    // T_orbw2orbcam: points in orb world frame to camera frame
-    Sophus::SE3f T_orbcam2orbw = pAgent->TrackStereo(left_cv_ptr->image, right_cv_ptr->image, t);
-    Sophus::SE3f T_orbw2orbcam = T_orbcam2orbw.inverse();
-
-    if (!has_initial_alignment_)
-    {
-        if (T_orbcam2orbw.translation().norm() < 1e-6)
-        {
-            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
-                "Waiting for valid initial pose from ORB-SLAM3...");
-            return;
-        }
-        
-        try{
-            auto tf_c_w_real = tf_buffer_.lookupTransform(
-                worldGazeboFrameId_,
-                realsenseFrameId_,
-                tf2::TimePointZero); // Get latest available transform
-            // T_gzbcam2gzbw: points in gazebo camera frame to gazebo world frame
-            Sophus::SE3f T_gzbcam2gzbw(
-                Eigen::Quaternionf(
-                    tf_c_w_real.transform.rotation.w,
-                    tf_c_w_real.transform.rotation.x,
-                    tf_c_w_real.transform.rotation.y,
-                    tf_c_w_real.transform.rotation.z),
-                Eigen::Vector3f(
-                    tf_c_w_real.transform.translation.x,
-                    tf_c_w_real.transform.translation.y,
-                    tf_c_w_real.transform.translation.z)
-            ); 
-
-            {
-                std::lock_guard<std::mutex> lock(mutex_alignment_);
-                // T_orbw2gzbw: points in orb world frame to gazebo world frame
-                T_orbw2gzbw = T_gzbcam2gzbw * T_orbw2orbcam;
-            } 
-                
-            has_initial_alignment_ = true;
-            RCLCPP_INFO(this->get_logger(), "Initial alignment between ORB-SLAM3 and real world established.");
-
-        } catch (tf2::TransformException &ex) {
-            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
-                "Could not get initial alignment transform: %s", ex.what());
-            return;
-        }
-    }
+    Sophus::SE3f Tcw = pAgent->TrackStereo(left_cv_ptr->image, right_cv_ptr->image, t);
+    Sophus::SE3f Twc = Tcw.inverse();
 
     // check if it was successful and publish data
-    if(pAgent->GetTrackingState() == ORB_SLAM3::Tracking::OK)
-    {
-        PublishOrbSlamOutput(T_orbw2orbcam, left_img, left_cv_ptr);
+    auto state = pAgent->GetTrackingState();
+    if (state == ORB_SLAM3::Tracking::OK ||
+        state == ORB_SLAM3::Tracking::RECENTLY_LOST){
+        if (!isInertial){
+                PublishOdomOnly(left_img->header, Twc);
+            }
+        else if(isInertial && pAgent->mpAtlas->isImuInitialized()){
+                    PublishOdomOnly(left_img->header, Twc);
+                }
     }
     else
     {
-        RCLCPP_ERROR(this->get_logger(), "Error tracking");
+        RCLCPP_ERROR(this->get_logger(), "System not in state OK or RECENTLY_LOST");
     }
+}
+
+void StereoMode::PublishOdomOnly(const std_msgs::msg::Header &header, const Sophus::SE3f &Twc){
+    
+    nav_msgs::msg::Odometry msg;
+        
+    msg.header.stamp = header.stamp; 
+    msg.header.frame_id = worldFrameId_;
+    msg.child_frame_id = cameraFrameId_;
+
+    Eigen::Vector3f wtwc = Twc.translation();
+    msg.pose.pose.position.x = wtwc[0];
+    msg.pose.pose.position.y = wtwc[1];
+    msg.pose.pose.position.z = wtwc[2];
+
+    Eigen::Quaternionf qwc = Twc.unit_quaternion();
+    msg.pose.pose.orientation.x = qwc.x();
+    msg.pose.pose.orientation.y = qwc.y();
+    msg.pose.pose.orientation.z = qwc.z();
+    msg.pose.pose.orientation.w = qwc.w();
+
+    odomPub_->publish(msg);
 }
 
 void StereoMode::DvlCallback(const sensors_msgs::msg::DVL::ConstSharedPtr &msg){
@@ -381,6 +363,8 @@ void StereoMode::ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
     // pass data to ORB SLAM
     pAgent->TrackIMU(t, imu_measurement);
 }
+
+// --------- NOT USED IN BASIC EVALUATION ---------- //
 
 void StereoMode::PublishOrbSlamOutput(const Sophus::SE3f& T_orbw2orbcam, 
                                       const sensor_msgs::msg::Image::ConstSharedPtr img_msg,
