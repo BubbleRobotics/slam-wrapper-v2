@@ -27,3 +27,6 @@ tank:
 
     si:
       Structure_Easy: "/home/ubuntu/ws_blue/data/runs/Structure_Easy/si"
+
+    sid:
+      Structure_Easy: "/home/ubuntu/ws_blue/data/runs/Structure_Easy/sid"
