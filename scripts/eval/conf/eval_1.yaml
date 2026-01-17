@@ -29,11 +29,11 @@ eval_setting: "stereo"
 # Relative Trajectory Error
 rte:
   do_analysis: false                     # if rte is computed
-  trajec_lengths: [0.1, 0.4, 1.6, 6.4]
-  show: true
+  trajec_lengths: [0.1, 0.3, 0.9, 2.7]
+  show: false
   save:
-    subtrajec: false
-    stats: false
+    subtrajec: true
+    stats: true
 
 # Absolute Trajectory Error
 ate:
@@ -60,10 +60,3 @@ evals:
           # Write the file stem (ie. without suffix)
           # - live_trajec_01
   
-  HalfTank_Medium: 
-    gt: ${paths.tank.gt.HalfTank_Medium}
-    run:
-      stereo: 
-        dir: ${paths.tank.run.s.HalfTank_Medium}
-        failures:
-         - live_trajec
