@@ -44,7 +44,7 @@ Camera1.p2: 0.0
 
 
 # Stereo parameters
-Stereo.ThDepth: 23.4 # original value: 15
+Stereo.ThDepth: 37.0 # original value: 15
 Stereo.b: 0.12
 
 
