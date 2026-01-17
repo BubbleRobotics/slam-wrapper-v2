@@ -174,6 +174,7 @@ class StereoMode : public rclcpp::Node
                                     const cv_bridge::CvImageConstPtr& cv_ptr);
         void PublishPose(const Sophus::SE3f& T_orbw2orbcam, const std_msgs::msg::Header& header);
         void PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const std_msgs::msg::Header& header);
+        void PublishOdomOnly(const std_msgs::msg::Header &header, const Sophus::SE3f &Twc);
         void PublishPath(const Sophus::SE3f& T_orbcam2gzbw, const std_msgs::msg::Header& header);
         void PublishMapPoints(const std_msgs::msg::Header& header);
         void PublishTrackingImage(const cv::Mat& image, const sensor_msgs::msg::Image::ConstSharedPtr img_msg);

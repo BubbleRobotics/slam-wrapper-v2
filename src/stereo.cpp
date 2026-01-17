@@ -232,35 +232,44 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
 
     // check if it was successful and publish data
     auto state = pAgent->GetTrackingState();
-    if(state == ORB_SLAM3::Tracking::OK ||
-       state == ORB_SLAM3::Tracking::RECENTLY_LOST  ||
-       state == ORB_SLAM3::Tracking::NOT_INITIALIZED)
-    {
-        nav_msgs::msg::Odometry msg;
-        
-        msg.header.stamp = left_img->header.stamp; 
-        msg.header.frame_id = worldFrameId_;
-        msg.child_frame_id = cameraFrameId_;
-
-        Eigen::Vector3f wtwc = Twc.translation();
-        msg.pose.pose.position.x = wtwc[0];
-        msg.pose.pose.position.y = wtwc[1];
-        msg.pose.pose.position.z = wtwc[2];
-
-        Eigen::Quaternionf qwc = Twc.unit_quaternion();
-        msg.pose.pose.orientation.x = qwc.x();
-        msg.pose.pose.orientation.y = qwc.y();
-        msg.pose.pose.orientation.z = qwc.z();
-        msg.pose.pose.orientation.w = qwc.w();
-
-        odomPub_->publish(msg);
+    if (state == ORB_SLAM3::Tracking::OK ||
+        state == ORB_SLAM3::Tracking::RECENTLY_LOST){
+        if (!isInertial){
+                PublishOdomOnly(left_img->header, Twc);
+                std::cout << "Running Stereo only!" << std::endl;
+            }
+        else if(isInertial && pAgent->mpAtlas->isImuInitialized()){
+                    PublishOdomOnly(left_img->header, Twc);
+                    std::cout << "Running Stero inertial!" << std::endl;
+                }
     }
     else
     {
-        RCLCPP_ERROR(this->get_logger(), "System not in state OK");
+        RCLCPP_ERROR(this->get_logger(), "System not in state OK or RECENTLY_LOST");
     }
 }
 
+void StereoMode::PublishOdomOnly(const std_msgs::msg::Header &header, const Sophus::SE3f &Twc){
+    
+    nav_msgs::msg::Odometry msg;
+        
+    msg.header.stamp = header.stamp; 
+    msg.header.frame_id = worldFrameId_;
+    msg.child_frame_id = cameraFrameId_;
+
+    Eigen::Vector3f wtwc = Twc.translation();
+    msg.pose.pose.position.x = wtwc[0];
+    msg.pose.pose.position.y = wtwc[1];
+    msg.pose.pose.position.z = wtwc[2];
+
+    Eigen::Quaternionf qwc = Twc.unit_quaternion();
+    msg.pose.pose.orientation.x = qwc.x();
+    msg.pose.pose.orientation.y = qwc.y();
+    msg.pose.pose.orientation.z = qwc.z();
+    msg.pose.pose.orientation.w = qwc.w();
+
+    odomPub_->publish(msg);
+}
 
 void StereoMode::ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
 {   
