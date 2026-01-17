@@ -236,11 +236,9 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
         state == ORB_SLAM3::Tracking::RECENTLY_LOST){
         if (!isInertial){
                 PublishOdomOnly(left_img->header, Twc);
-                std::cout << "Running Stereo only!" << std::endl;
             }
         else if(isInertial && pAgent->mpAtlas->isImuInitialized()){
                     PublishOdomOnly(left_img->header, Twc);
-                    std::cout << "Running Stero inertial!" << std::endl;
                 }
     }
     else
