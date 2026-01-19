@@ -232,6 +232,11 @@ void MonoMode::ImgCallback(const sensor_msgs::msg::Image::SharedPtr img_msg)
     }
     
     double t = img_msg->header.stamp.sec + img_msg->header.stamp.nanosec * 1e-9;
+
+    if (!InitCameraBaseTransform())
+    {
+        return;
+    }
     
 
     Sophus::SE3f T_orbcam2orbw = pAgent->TrackMonocular(cv_ptr->image, t);

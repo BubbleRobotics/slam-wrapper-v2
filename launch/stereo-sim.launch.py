@@ -31,7 +31,7 @@ def generate_launch_description():
                 {'img1_topic': '/camera_d455/ir_right/image_raw'},
                 {'imu_topic': '/vectornav/Imu_raw'},
                 {'enable_debug_window': True},
-                {'is_inertial': True},
+                {'is_inertial': False},
                 {'manual_time_sync': False},
                 {'imu_from_yaml': False},
             ]

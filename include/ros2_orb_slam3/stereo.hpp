@@ -137,11 +137,13 @@ class StereoMode : public rclcpp::Node
         std::string imuFrameId_ = "";
         bool publishTf_ = true;
         bool publishPointcloud_ = true;
+        bool has_cam_to_base_tf_ = false;
 
         // frame transform vars
         tf2_ros::Buffer tf_buffer_;
         tf2_ros::TransformListener tf_listener_;
         geometry_msgs::msg::TransformStamped transformImuCam;
+        geometry_msgs::msg::TransformStamped T_gzbcam2gzbBL;
 
         // Additional variables for conversions
         Sophus::SE3f T_orbw2gzbw; // stores orb world to gazebo world transform
@@ -167,6 +169,7 @@ class StereoMode : public rclcpp::Node
         void ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg); // Callback to process IMU data sent by Python node
 
         bool InitImuCamTransform(); //* Method to initialize the transform between IMU and camera frames
+        bool InitCameraBaseTransform(); //* Method to initialize the transform between camera and base frames
 
         // Publishers for Orb Slam Output
         void PublishOrbSlamOutput(const Sophus::SE3f& T_orbw2orbcam, 

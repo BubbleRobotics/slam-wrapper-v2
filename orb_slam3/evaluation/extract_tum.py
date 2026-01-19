@@ -44,8 +44,8 @@ def resolve_bag_path(mcap_arg):
 BAG_FILE = resolve_bag_path(args.mcap)
 print(f"Using bag file: {BAG_FILE}")
 
-TOPIC_GT = "/ORB_SLAM3/mono_sim_node/ground_truth"
-TOPIC_ODO = "/ORB_SLAM3/mono_sim_node/odometry"
+TOPIC_GT = "/model/bluerov2/odometry"
+TOPIC_ODO = "/ORB_SLAM3/stereo_sim_node/odometry"
 
 OUT_GT = "ground_truth.txt"
 OUT_ODO = "odometry.txt"
