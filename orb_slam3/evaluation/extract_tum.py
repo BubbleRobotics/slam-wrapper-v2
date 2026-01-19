@@ -44,11 +44,13 @@ def resolve_bag_path(mcap_arg):
 BAG_FILE = resolve_bag_path(args.mcap)
 print(f"Using bag file: {BAG_FILE}")
 
-TOPIC_GT = "/ORB_SLAM3/mono_sim_node/ground_truth"
-TOPIC_ODO = "/ORB_SLAM3/mono_sim_node/odometry"
+TOPIC_GT = "/model/bluerov2/odometry"
+TOPIC_ODO = "/ORB_SLAM3/stereo_sim_node/odometry"
+TOPIC_EKF = "/est/odometry/filtered_global"
 
 OUT_GT = "ground_truth.txt"
-OUT_ODO = "odometry.txt"
+OUT_ODO_ORB = "odometry_orb.txt"
+OUT_ODO_EKF = "odometry_ekf.txt"
 
 
 def write_tum(msg, f):
@@ -76,7 +78,8 @@ def main():
     type_map = {t.name: t.type for t in topic_types}
 
     f_gt = open(OUT_GT, "w")
-    f_odo = open(OUT_ODO, "w")
+    f_orb = open(OUT_ODO_ORB, "w")
+    f_ekf = open(OUT_ODO_EKF, "w")
 
     print("Reading messages...")
 
@@ -94,14 +97,18 @@ def main():
         if topic == TOPIC_GT:
             write_tum(msg, f_gt)
         elif topic == TOPIC_ODO:
-            write_tum(msg, f_odo)
+            write_tum(msg, f_orb)
+        elif topic == TOPIC_EKF:
+            write_tum(msg, f_ekf)
 
     f_gt.close()
-    f_odo.close()
+    f_orb.close()
+    f_ekf.close()
 
     print("Done.")
     print("Saved:", OUT_GT)
-    print("Saved:", OUT_ODO)
+    print("Saved:", OUT_ODO_ORB)
+    print("Saved:", OUT_ODO_EKF)
 
 
 if __name__ == "__main__":
