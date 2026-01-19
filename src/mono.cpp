@@ -189,6 +189,32 @@ bool MonoMode::InitImuCamTransform()
     }
 }
 
+bool MonoMode::InitCameraBaseTransform()
+{
+    if (has_cam_to_base_tf_) {
+        return true;
+    }
+
+    try {
+        T_gzbcam2gzbBL = 
+            tf_buffer_.lookupTransform(
+                "base_link",              // target
+                realsenseFrameId_,        // source (left camera)
+                tf2::TimePointZero
+            );
+
+        has_cam_to_base_tf_ = true;
+
+        RCLCPP_INFO(this->get_logger(), "TF Received");
+        return true;
+
+    } catch (const tf2::TransformException &ex) {
+        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+            "Waiting for transform: %s", ex.what());
+        return false;
+    }
+}
+
 //* Callback to process image message and run SLAM node
 void MonoMode::ImgCallback(const sensor_msgs::msg::Image::SharedPtr img_msg)
 {
@@ -338,7 +364,7 @@ void MonoMode::PublishOrbSlamOutput(const Sophus::SE3f& T_orbw2orbcam,
                                     const sensor_msgs::msg::Image::ConstSharedPtr img_msg,
                                     const cv_bridge::CvImageConstPtr& cv_ptr)
 {
-    if (!has_initial_alignment_) {
+    if (!has_initial_alignment_ || !has_cam_to_base_tf_) {
         return;
     }
 
@@ -398,14 +424,47 @@ void MonoMode::PublishPose(const Sophus::SE3f& T_orbw2orbcam, const std_msgs::ms
 
 void MonoMode::PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const std_msgs::msg::Header& header)
 {
+    // nav_msgs::msg::Odometry odom_msg;
+    // odom_msg.header.stamp = header.stamp;
+    // odom_msg.header.frame_id =  worldGazeboFrameId_;
+    // odom_msg.child_frame_id = cameraFrameOrbId_;
+
+    // Eigen::Vector3f t = T_orbcam2gzbw.translation();
+    // Eigen::Quaternionf q = T_orbcam2gzbw.unit_quaternion();
+    
+    // odom_msg.pose.pose.position.x = t.x();
+    // odom_msg.pose.pose.position.y = t.y();
+    // odom_msg.pose.pose.position.z = t.z();
+    
+    // odom_msg.pose.pose.orientation.x = q.x();
+    // odom_msg.pose.pose.orientation.y = q.y();
+    // odom_msg.pose.pose.orientation.z = q.z();
+    // odom_msg.pose.pose.orientation.w = q.w();
+    
+    // odomPub_->publish(odom_msg);
+
     nav_msgs::msg::Odometry odom_msg;
     odom_msg.header.stamp = header.stamp;
-    odom_msg.header.frame_id =  worldGazeboFrameId_;
-    odom_msg.child_frame_id = cameraFrameOrbId_;
+    odom_msg.header.frame_id = worldGazeboFrameId_;
+    odom_msg.child_frame_id = "base_link_est"; // FOR EKF USAGE
 
-    Eigen::Vector3f t = T_orbcam2gzbw.translation();
-    Eigen::Quaternionf q = T_orbcam2gzbw.unit_quaternion();
-    
+    Sophus::SE3f T_cam2base(
+        Eigen::Quaternionf(
+            T_gzbcam2gzbBL.transform.rotation.w,
+            T_gzbcam2gzbBL.transform.rotation.x,
+            T_gzbcam2gzbBL.transform.rotation.y,
+            T_gzbcam2gzbBL.transform.rotation.z),
+        Eigen::Vector3f(
+            T_gzbcam2gzbBL.transform.translation.x,
+            T_gzbcam2gzbBL.transform.translation.y,
+            T_gzbcam2gzbBL.transform.translation.z)
+    );
+
+    Sophus::SE3f T_baselink_est2gzbw = T_orbcam2gzbw * T_cam2base.inverse(); 
+
+    Eigen::Vector3f t = T_baselink_est2gzbw.translation();
+    Eigen::Quaternionf q = T_baselink_est2gzbw.unit_quaternion();
+
     odom_msg.pose.pose.position.x = t.x();
     odom_msg.pose.pose.position.y = t.y();
     odom_msg.pose.pose.position.z = t.z();
@@ -414,7 +473,7 @@ void MonoMode::PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const std_msgs
     odom_msg.pose.pose.orientation.y = q.y();
     odom_msg.pose.pose.orientation.z = q.z();
     odom_msg.pose.pose.orientation.w = q.w();
-    
+
     odomPub_->publish(odom_msg);
     
     try {
