@@ -243,7 +243,7 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
     }
     else
     {
-        RCLCPP_ERROR(this->get_logger(), "System not in state OK or RECENTLY_LOST");
+        // RCLCPP_ERROR(this->get_logger(), "System not in state OK or RECENTLY_LOST");
     }
 }
 
