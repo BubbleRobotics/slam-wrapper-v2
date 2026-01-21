@@ -5,7 +5,7 @@ namespace ORB_SLAM3{
 namespace DVL {
 
 // Standard deviation of isotropic Gaussian DVL measurement noise
-float Calib::mSigma = 1.0 * 0.0101;
+float Calib::mSigma = 0.5 * 0.0101; // 0.5m/s times the data-sheet error of 1.01%
 
 // Covariance matrix for DVL measurement noise
 Eigen::DiagonalMatrix<float, 3> Calib::mCov(
