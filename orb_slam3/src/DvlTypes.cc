@@ -14,17 +14,6 @@ Eigen::DiagonalMatrix<float, 3> Calib::mCov(
     Calib::mSigma * Calib::mSigma 
 );
 
-// Matrix R_ID
-// Taken from the Tank dataset parameter file for HalfTank_Easy
-// Determinant 1.000036 but it needs the explicit fitToSO3 to work
-Sophus::SO3f Calib::mRid = Sophus::SO3f::fitToSO3(
-    Eigen::Matrix3f{
-        {-0.0030f, 0.0292f, 0.9996f},
-        { 0.9995f, 0.0328f, 0.0021f},
-        {-0.0327f, 0.9990f,-0.0293f}
-    }
-);
-
 // Helper: convert a 4×4 float matrix into SE3f
 Sophus::SE3f toSE3(const Eigen::Matrix4f& M) {
     Eigen::Matrix3f R = M.block<3,3>(0,0);
@@ -53,6 +42,10 @@ Sophus::SE3f Calib::Tdc = toSE3(
 );
 
 Sophus::SE3f Calib::Tid = Calib::Tic * Calib::Tdc.inverse();
+
+const Sophus::SO3f Calib::R_ID(){
+    return Tid.so3();
+}
 
 }
 

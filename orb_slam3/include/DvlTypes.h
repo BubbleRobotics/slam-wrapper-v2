@@ -42,9 +42,6 @@ class Calib{
         // measured velocity vector around the physical velocity is isotropic
         static Eigen::DiagonalMatrix<float, 3> mCov;
 
-        // Rotation matrix transforming vectors in the DVL frame to vectors in the IMU body frame.
-        static Sophus::SO3f mRid;
-
     public:
 
          static Sophus::SE3f Tic; 
@@ -57,9 +54,7 @@ class Calib{
         Calib() = default;
         
         // Getters for the constants
-        static const Sophus::SO3f& R_ID() {
-           return mRid;
-        }
+        static const Sophus::SO3f R_ID();
         static const Eigen::DiagonalMatrix<float, 3>& Cov() {
            return mCov;
         }
