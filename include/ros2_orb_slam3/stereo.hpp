@@ -20,6 +20,12 @@
 #include <chrono> // c++ timekeeper library
 #include <vector> // vectors are sequence containers representing arrays that can change in size.
 #include <queue>
+#include <set>
+#include <tuple>
+#include <limits>
+#include <cmath>
+#include <unordered_set>
+#include <functional>
 #include <thread> // class to represent individual threads of execution.
 #include <mutex> // A mutex is a lockable object that is designed to signal when critical sections of code need exclusive access, preventing other threads with the same protection from executing concurrently and access the same memory locations.
 #include <cstdlib> // to find home directory
@@ -52,6 +58,16 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+// PCL includes for map export
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl/io/pcd_io.h>
+
+// Service includes
+#include "ros2_orb_slam3/srv/save_map.hpp"
+#include "ros2_orb_slam3/srv/load_map.hpp"
+
 using std::placeholders::_1;
 using std::placeholders::_2;
 
@@ -114,8 +130,13 @@ class StereoMode : public rclcpp::Node
         rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr gtPub_;
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pointcloudPub_;
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr trackingImagePub_;
+        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr loadedMapPub_;  // Publisher for loaded map
 
         std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
+
+        // Service servers for map operations
+        rclcpp::Service<ros2_orb_slam3::srv::SaveMap>::SharedPtr saveMapService_;
+        rclcpp::Service<ros2_orb_slam3::srv::LoadMap>::SharedPtr loadMapService_;
 
         //* ORB_SLAM3 related variables
         ORB_SLAM3::System* pAgent; // pointer to a ORB SLAM3 object
@@ -180,6 +201,28 @@ class StereoMode : public rclcpp::Node
         void OnOrbMapTransformed(const Sophus::SE3f& T, float s);
         void PublishWorldToOrbMapTF(const rclcpp::Time &stamp);
         void PublishOrbMapToOrbCamTF(const Sophus::SE3f& T_orbw2orbcam, const rclcpp::Time &stamp);
+
+        // Map export/import functions
+        void SaveMapCallback(
+            const std::shared_ptr<ros2_orb_slam3::srv::SaveMap::Request> request,
+            std::shared_ptr<ros2_orb_slam3::srv::SaveMap::Response> response);
+        void LoadMapCallback(
+            const std::shared_ptr<ros2_orb_slam3::srv::LoadMap::Request> request,
+            std::shared_ptr<ros2_orb_slam3::srv::LoadMap::Response> response);
+
+        bool ExportPointCloud(const std::string& filepath);
+        bool ExportOccupancyGrid(const std::string& filepath, float resolution = 0.1f, bool export_2d = false);
+        bool PublishLoadedPointCloud(const std::string& filepath);
+
+        // Hash function for voxel coordinates (for unordered_set performance)
+        struct VoxelHash {
+            std::size_t operator()(const std::tuple<int,int,int>& v) const {
+                auto h1 = std::hash<int>{}(std::get<0>(v));
+                auto h2 = std::hash<int>{}(std::get<1>(v));
+                auto h3 = std::hash<int>{}(std::get<2>(v));
+                return h1 ^ (h2 << 1) ^ (h3 << 2);
+            }
+        };
 };
 
 #endif
