@@ -1,0 +1,9 @@
+# Request
+string filepath        # Base path (without extension)
+bool save_osa         # Save native ORB-SLAM format (.osa)
+bool save_pcd         # Save as PointCloud (.pcd)
+bool save_occupancy   # Save as occupancy grid
+---
+# Response
+bool success
+string message

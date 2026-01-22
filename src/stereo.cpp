@@ -111,6 +111,21 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
         tfBroadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
     }
 
+    // Publisher for loaded map
+    loadedMapPub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
+        "~/loaded_map", 10);
+
+    // Create map services
+    saveMapService_ = this->create_service<ros2_orb_slam3::srv::SaveMap>(
+        "~/save_map",
+        std::bind(&StereoMode::SaveMapCallback, this, std::placeholders::_1, std::placeholders::_2));
+
+    loadMapService_ = this->create_service<ros2_orb_slam3::srv::LoadMap>(
+        "~/load_map",
+        std::bind(&StereoMode::LoadMapCallback, this, std::placeholders::_1, std::placeholders::_2));
+
+    RCLCPP_INFO(this->get_logger(), "Map services created: ~/save_map, ~/load_map");
+
     // Start of VSLAM
     InitializeVSLAM();
     has_initial_alignment_ = false;
@@ -709,11 +724,291 @@ void StereoMode::PublishOrbMapToOrbCamTF(const Sophus::SE3f& T_orbw2orbcam, cons
     tf.transform.translation.x = t.x();
     tf.transform.translation.y = t.y();
     tf.transform.translation.z = t.z();
-    
+
     tf.transform.rotation.x = q.x();
     tf.transform.rotation.y = q.y();
     tf.transform.rotation.z = q.z();
     tf.transform.rotation.w = q.w();
 
+
     tfBroadcaster_->sendTransform(tf);
+}
+
+// ============================================================================
+// Map Export/Import Functions
+// ============================================================================
+
+void StereoMode::SaveMapCallback(
+    const std::shared_ptr<ros2_orb_slam3::srv::SaveMap::Request> request,
+    std::shared_ptr<ros2_orb_slam3::srv::SaveMap::Response> response)
+{
+    RCLCPP_INFO(this->get_logger(), "SaveMap service called with filepath: %s", request->filepath.c_str());
+
+    std::string base_path = request->filepath;
+    std::string result_msg;
+    bool all_success = true;
+
+    // Save native ORB-SLAM format (.osa)
+    if (request->save_osa) {
+        std::string osa_path = base_path + ".osa";
+        try {
+            pAgent->SaveMap(osa_path);
+            result_msg += "OSA saved to " + osa_path + "; ";
+            RCLCPP_INFO(this->get_logger(), "Saved ORB-SLAM map to: %s", osa_path.c_str());
+        } catch (const std::exception& e) {
+            result_msg += "OSA save failed: " + std::string(e.what()) + "; ";
+            all_success = false;
+            RCLCPP_ERROR(this->get_logger(), "Failed to save OSA: %s", e.what());
+        }
+    }
+
+    // Save as PCD point cloud
+    if (request->save_pcd) {
+        std::string pcd_path = base_path + ".pcd";
+        if (ExportPointCloud(pcd_path)) {
+            result_msg += "PCD saved to " + pcd_path + "; ";
+        } else {
+            result_msg += "PCD save failed; ";
+            all_success = false;
+        }
+    }
+
+    // Save as occupancy grid
+    if (request->save_occupancy) {
+        std::string occ_path = base_path + "_occupancy.pcd";
+        if (ExportOccupancyGrid(occ_path)) {
+            result_msg += "Occupancy grid saved to " + occ_path + "; ";
+        } else {
+            result_msg += "Occupancy grid save failed; ";
+            all_success = false;
+        }
+    }
+
+    response->success = all_success;
+    response->message = result_msg;
+}
+
+void StereoMode::LoadMapCallback(
+    const std::shared_ptr<ros2_orb_slam3::srv::LoadMap::Request> request,
+    std::shared_ptr<ros2_orb_slam3::srv::LoadMap::Response> response)
+{
+    RCLCPP_INFO(this->get_logger(), "LoadMap service called with filepath: %s", request->filepath.c_str());
+
+    std::string filepath = request->filepath;
+
+    // Check file extension to determine load method
+    if (filepath.find(".osa") != std::string::npos) {
+        response->success = false;
+        response->message = "To load .osa files for relocalization, set 'System.LoadAtlasFromFile' in config YAML and restart the node.";
+        RCLCPP_WARN(this->get_logger(), "%s", response->message.c_str());
+    }
+    else if (filepath.find(".pcd") != std::string::npos) {
+        if (request->publish_pointcloud) {
+            if (PublishLoadedPointCloud(filepath)) {
+                response->success = true;
+                response->message = "PCD loaded and published to ~/loaded_map topic";
+            } else {
+                response->success = false;
+                response->message = "Failed to load PCD file";
+            }
+        } else {
+            response->success = true;
+            response->message = "PCD file path received (publish_pointcloud=false)";
+        }
+    }
+    else {
+        response->success = false;
+        response->message = "Unknown file format. Supported: .osa, .pcd";
+    }
+}
+
+bool StereoMode::ExportPointCloud(const std::string& filepath)
+{
+    RCLCPP_INFO(this->get_logger(), "Exporting point cloud to: %s", filepath.c_str());
+
+    std::vector<ORB_SLAM3::MapPoint*> mapPoints = pAgent->GetAllMapPoints();
+
+    if (mapPoints.empty()) {
+        RCLCPP_WARN(this->get_logger(), "No map points to export");
+        return false;
+    }
+
+    pcl::PointCloud<pcl::PointXYZ> cloud;
+    cloud.reserve(mapPoints.size());
+
+    for (auto* mp : mapPoints) {
+        if (mp && !mp->isBad()) {
+            Eigen::Vector3f pos = mp->GetWorldPos();
+            cloud.push_back(pcl::PointXYZ(pos.x(), pos.y(), pos.z()));
+        }
+    }
+
+    if (cloud.empty()) {
+        RCLCPP_WARN(this->get_logger(), "No valid map points to export");
+        return false;
+    }
+
+    cloud.width = cloud.size();
+    cloud.height = 1;
+    cloud.is_dense = true;
+
+    if (pcl::io::savePCDFileBinary(filepath, cloud) == 0) {
+        RCLCPP_INFO(this->get_logger(), "Exported %zu points to PCD file", cloud.size());
+        return true;
+    } else {
+        RCLCPP_ERROR(this->get_logger(), "Failed to save PCD file");
+        return false;
+    }
+}
+
+bool StereoMode::ExportOccupancyGrid(const std::string& filepath, float resolution, bool export_2d)
+{
+    RCLCPP_INFO(this->get_logger(), "Exporting %s occupancy grid with resolution %.3f to: %s",
+                export_2d ? "2D" : "3D", resolution, filepath.c_str());
+
+    // Thread-safe: snapshot map points first
+    std::vector<Eigen::Vector3f> valid_points;
+    {
+        std::vector<ORB_SLAM3::MapPoint*> mapPoints = pAgent->GetAllMapPoints();
+
+        if (mapPoints.empty()) {
+            RCLCPP_WARN(this->get_logger(), "No map points to export");
+            return false;
+        }
+
+        valid_points.reserve(mapPoints.size());
+        for (auto* mp : mapPoints) {
+            if (mp && !mp->isBad()) {
+                valid_points.push_back(mp->GetWorldPos());
+            }
+        }
+    }
+
+    if (valid_points.empty()) {
+        RCLCPP_WARN(this->get_logger(), "No valid points for occupancy grid");
+        return false;
+    }
+
+    // Find bounding box
+    float min_x = std::numeric_limits<float>::max();
+    float min_y = std::numeric_limits<float>::max();
+    float min_z = std::numeric_limits<float>::max();
+    float max_x = std::numeric_limits<float>::lowest();
+    float max_y = std::numeric_limits<float>::lowest();
+    float max_z = std::numeric_limits<float>::lowest();
+
+    for (const auto& pos : valid_points) {
+        min_x = std::min(min_x, pos.x());
+        min_y = std::min(min_y, pos.y());
+        min_z = std::min(min_z, pos.z());
+        max_x = std::max(max_x, pos.x());
+        max_y = std::max(max_y, pos.y());
+        max_z = std::max(max_z, pos.z());
+    }
+
+    // Compute grid dimensions with explicit floor rounding
+    int grid_x = static_cast<int>(std::floor((max_x - min_x) / resolution)) + 1;
+    int grid_y = static_cast<int>(std::floor((max_y - min_y) / resolution)) + 1;
+    int grid_z = export_2d ? 1 : static_cast<int>(std::floor((max_z - min_z) / resolution)) + 1;
+
+    RCLCPP_INFO(this->get_logger(), "Occupancy grid size: %d x %d x %d", grid_x, grid_y, grid_z);
+
+    // Use unordered_set with custom hash for O(1) insert/lookup
+    std::unordered_set<std::tuple<int,int,int>, VoxelHash> occupied_voxels;
+    occupied_voxels.reserve(valid_points.size());
+
+    for (const auto& pos : valid_points) {
+        int ix = static_cast<int>(std::floor((pos.x() - min_x) / resolution));
+        int iy = static_cast<int>(std::floor((pos.y() - min_y) / resolution));
+        int iz = export_2d ? 0 : static_cast<int>(std::floor((pos.z() - min_z) / resolution));
+
+        // Clamp to valid range (safety for floating-point edge cases)
+        ix = std::max(0, std::min(ix, grid_x - 1));
+        iy = std::max(0, std::min(iy, grid_y - 1));
+        iz = std::max(0, std::min(iz, grid_z - 1));
+
+        occupied_voxels.insert(std::make_tuple(ix, iy, iz));
+    }
+
+    // Export occupied voxel centers as point cloud
+    pcl::PointCloud<pcl::PointXYZ> voxel_cloud;
+    voxel_cloud.reserve(occupied_voxels.size());
+
+    float z_center = export_2d ? (min_z + max_z) / 2.0f : 0.0f;
+
+    for (const auto& voxel : occupied_voxels) {
+        float cx = min_x + (std::get<0>(voxel) + 0.5f) * resolution;
+        float cy = min_y + (std::get<1>(voxel) + 0.5f) * resolution;
+        float cz = export_2d ? z_center : min_z + (std::get<2>(voxel) + 0.5f) * resolution;
+        voxel_cloud.push_back(pcl::PointXYZ(cx, cy, cz));
+    }
+
+    voxel_cloud.width = voxel_cloud.size();
+    voxel_cloud.height = 1;
+    voxel_cloud.is_dense = true;
+
+    // Save with error handling
+    try {
+        int result = pcl::io::savePCDFileBinary(filepath, voxel_cloud);
+        if (result == 0) {
+            RCLCPP_INFO(this->get_logger(), "Exported occupancy grid: %zu voxels from %zu points",
+                        voxel_cloud.size(), valid_points.size());
+            return true;
+        } else {
+            RCLCPP_ERROR(this->get_logger(), "PCL savePCDFileBinary returned error code: %d", result);
+            return false;
+        }
+    } catch (const std::exception& e) {
+        RCLCPP_ERROR(this->get_logger(), "Exception while saving occupancy grid: %s", e.what());
+        return false;
+    }
+}
+
+bool StereoMode::PublishLoadedPointCloud(const std::string& filepath)
+{
+    RCLCPP_INFO(this->get_logger(), "Loading point cloud from: %s", filepath.c_str());
+
+    pcl::PointCloud<pcl::PointXYZ> cloud;
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>(filepath, cloud) == -1) {
+        RCLCPP_ERROR(this->get_logger(), "Failed to load PCD file: %s", filepath.c_str());
+        return false;
+    }
+
+    sensor_msgs::msg::PointCloud2 cloud_msg;
+    cloud_msg.header.stamp = this->now();
+    cloud_msg.header.frame_id = worldFrameId_;
+
+    cloud_msg.height = 1;
+    cloud_msg.width = cloud.size();
+    cloud_msg.is_dense = true;
+
+    cloud_msg.fields.resize(3);
+    cloud_msg.fields[0].name = "x";
+    cloud_msg.fields[0].offset = 0;
+    cloud_msg.fields[0].datatype = sensor_msgs::msg::PointField::FLOAT32;
+    cloud_msg.fields[0].count = 1;
+
+    cloud_msg.fields[1].name = "y";
+    cloud_msg.fields[1].offset = 4;
+    cloud_msg.fields[1].datatype = sensor_msgs::msg::PointField::FLOAT32;
+    cloud_msg.fields[1].count = 1;
+
+    cloud_msg.fields[2].name = "z";
+    cloud_msg.fields[2].offset = 8;
+    cloud_msg.fields[2].datatype = sensor_msgs::msg::PointField::FLOAT32;
+    cloud_msg.fields[2].count = 1;
+
+    cloud_msg.point_step = 12;
+    cloud_msg.row_step = cloud_msg.point_step * cloud_msg.width;
+    cloud_msg.data.resize(cloud_msg.row_step);
+
+    for (size_t i = 0; i < cloud.size(); i++) {
+        memcpy(&cloud_msg.data[i * 12 + 0], &cloud[i].x, sizeof(float));
+        memcpy(&cloud_msg.data[i * 12 + 4], &cloud[i].y, sizeof(float));
+        memcpy(&cloud_msg.data[i * 12 + 8], &cloud[i].z, sizeof(float));
+    }
+
+    loadedMapPub_->publish(cloud_msg);
+    RCLCPP_INFO(this->get_logger(), "Published %zu points to ~/loaded_map", cloud.size());
+    return true;
 }

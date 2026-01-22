@@ -1,0 +1,7 @@
+# Request
+string filepath        # Path to map file (.osa for relocalization, .pcd for pointcloud)
+bool publish_pointcloud  # Publish loaded map as PointCloud2 topic
+---
+# Response
+bool success
+string message

@@ -30,13 +30,21 @@ find_package(nav_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common io)
 
+# Generate service interfaces
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/SaveMap.srv"
+  "srv/LoadMap.srv"
+)
 
 # Header file locations [C++ node]
 include_directories(include) # Add .hpp, .h files from include/ros2_orb_slam3
 include_directories(${EIGEN3_INCLUDE_DIRS}) # Include headers for eigen3
 include_directories(${Pangolin_INCLUDE_DIRS}) # include headers for pangolin
 include_directories(${OpenCV_INCLUDE_DIRS}) # include headers for pangolin
+include_directories(${PCL_INCLUDE_DIRS}) # include headers for PCL
 
 
 # ORB-SLAM3 includes [VSLAM library]
@@ -180,17 +188,27 @@ ament_target_dependencies(stereo_node_cpp
 )
 
 target_link_libraries(mono_node_cpp PUBLIC orb_slam3_lib) # Link a node with the internal shared library
-target_link_libraries(stereo_node_cpp PUBLIC orb_slam3_lib) # Link a node with the internal shared library
+target_link_libraries(stereo_node_cpp PUBLIC orb_slam3_lib ${PCL_LIBRARIES}) # Link a node with the internal shared library
 
+# Link generated service interfaces to the stereo node
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(stereo_node_cpp PUBLIC ${cpp_typesupport_target})
 
 # Install all the header files in package/package/include
 install (DIRECTORY include/ 
         DESTINATION include
 )
 
-# install launch file 
+# install launch file
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}/
+)
+
+# Install Python scripts
+install(PROGRAMS
+  scripts/map_publisher.py
+  scripts/occupancy_grid_publisher.py
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 # install orb config and vocabulary files
@@ -216,6 +234,7 @@ ament_export_include_directories(include)
 ament_export_dependencies(
   orb_slam3_lib
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
+  rosidl_default_runtime
 )
 
 ament_package()
