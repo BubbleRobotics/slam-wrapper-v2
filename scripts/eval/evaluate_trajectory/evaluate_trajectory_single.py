@@ -20,7 +20,7 @@ from collections import namedtuple
 class TrajectoryEval:
 
     def __init__(self, odometry_path: str, gt_path: str, sensor_config: str="mono",
-                 gravity_vector: list=None):
+                 gravity_vector: list=[0, 0, 1]):
         """
         Evaluate a trajectory against ground truth data by aligning time stamps
 
@@ -38,7 +38,7 @@ class TrajectoryEval:
             Select "interial" for either stereo-inertial or mono-inertial configurations.
             This determines the kind of alignment transformation that is applied to
             compensate for unobservables in the respective configurations.
-        4. gravity_vector : list (default: None)
+        4. gravity_vector : list (default: [0, 0, 1])
             - The gravity vector in world coordinates. Only needed for inertial. Pass
             list or np.array of shape (3,). 
             - The *orientation* of the coordinate systems in the gt and the estimated
@@ -74,7 +74,7 @@ class TrajectoryEval:
         self.odometry_path = Path(odometry_path)
         gt_file_path = Path(gt_path)
 
-        trajec = np.loadtxt(self.odometry_path.as_posix())
+        trajec = np.loadtxt(self.odometry_path.as_posix(), skiprows=1)
         gt = np.loadtxt(gt_file_path.as_posix())
 
         # How many ground truth poses are in the file
@@ -84,7 +84,7 @@ class TrajectoryEval:
         self.gt_length = None
 
         # Align trajectory and ground truth poses by time stamp
-        trajec, gt = self.time_align(trajec, gt, threshold=0.001)
+        trajec, gt = self.time_align(trajec, gt, threshold=0.01)
 
         self.n_poses = gt.shape[0]
 
@@ -92,6 +92,8 @@ class TrajectoryEval:
         self.frac_gt_used = self.n_poses / n_gt_poses
 
         # Quaternions to rotation matrices
+        print(odometry_path)
+        # breakpoint()
         trajc_rotations = Rotation.from_quat(trajec[:, 4:8]).as_matrix()
         gt_rotations = Rotation.from_quat(gt[:, 4:8]).as_matrix()
 
@@ -489,6 +491,14 @@ class TrajectoryEval:
             - List containing start and stop indices of each subtrajectory
             - The stop index of sub-trajectory i is the start index of 
             sub-trajectory i+1. Hence split_pos contains n_s + 1 integers
+        6. rotation error vector : np.array
+            - The full rotation error vector. Needed for estimating the variance
+            on its distribution
+            - shape: (n_s, 3)
+        7. position error vector: np.array
+            - The full rotation error vector. Needed for estimating the variance
+            on its distribution
+            - shape: (n_s, 3)
         """
 
         split_pos = self.re_get_split_pos(trajectory_length)
@@ -496,6 +506,8 @@ class TrajectoryEval:
         rot_err = np.zeros(len(split_pos) - 1)
         scales = np.zeros(len(split_pos) - 1)
         pos_err = np.zeros(len(split_pos) - 1)
+        rot_err_vec = np.zeros((len(split_pos) - 1, 3))
+        pos_err_vec = np.zeros((len(split_pos) - 1, 3))
 
         T_wc = self.T_wc_array.reshape(-1, 3, 4)
         gt_T_wc = self.gt_T_wc_array.reshape(-1, 3, 4)
@@ -515,6 +527,8 @@ class TrajectoryEval:
             
             # Compute the rotation error at the last frame of the subtrajectory
             R_k = gt_T_wc[next_pos, :, :3] @ R_dash_e.T
+
+            rot_err_vec[i] = Rotation.from_matrix(R_k).as_rotvec() * 180 / np.pi
 
             # Convert the rotation error to vector representation and save
             rot_err[i] = Rotation.from_matrix(R_k).magnitude() * 180 / np.pi
@@ -562,11 +576,12 @@ class TrajectoryEval:
                 p_hat_dash = R_dash_s @ p_hat + t.reshape(3, 1)
 
             pos_err[i] = np.linalg.norm(gt_T_wc[next_pos, :, 3] - R_k @ p_hat_dash[:, -1])
+            pos_err_vec[i] = gt_T_wc[next_pos, :, 3] - R_k @ p_hat_dash[:, -1]
 
             # Keep the transformed positions for visualisation later
             split_trajec.append(p_hat_dash)
         
-        return pos_err, rot_err, scales, split_trajec, split_pos
+        return pos_err, rot_err, scales, split_trajec, split_pos, rot_err_vec, pos_err_vec
 
 
     def relative_error(self, trajec_lenghts=(1, 2, 3, 4, 5), show=True, save=[None, None]):
@@ -598,15 +613,21 @@ class TrajectoryEval:
         |--l0p4: ReErrType
         |           |------rot: np.array
         |           |------pos: np.array
+        |           |------rot_vec: np.array
+        |           |------pos_vec: np.array
         |--l1p6: ReErrType
                     |------rot: np.array
                     |------pos: np.array
+                    |------rot_vec: np.array
+                    |------pos_vec: np.array
         """
 
         n_lengths = len(trajec_lenghts)
 
         pos_errs = []
         rot_errs = []
+        pos_err_vecs = []
+        rot_err_vecs = []
         scale_drifts = []
         split_trajecs = []
         split_pos_s = []
@@ -614,12 +635,14 @@ class TrajectoryEval:
         for i in range(n_lengths):
 
             for_length_i = self._get_relative_error(trajec_lenghts[i])
-            pos_err, rot_err, scale_drift, split_trajec, split_pos = for_length_i
+            pos_err, rot_err, scale_drift, split_trajec, split_pos, rot_err_vec, pos_err_vec = for_length_i
             pos_errs.append(pos_err)
             rot_errs.append(rot_err)
             scale_drifts.append(scale_drift)
             split_trajecs.append(split_trajec)
             split_pos_s.append(split_pos)
+            pos_err_vecs.append(pos_err_vec)
+            rot_err_vecs.append(rot_err_vec)
 
         # ---------- STATISTICS PLOT ---------- #
         
@@ -655,15 +678,18 @@ class TrajectoryEval:
         # For looping through the subtrajectory lengths: placeholder list
         placeholder = []
 
-        # Named tuple containing two fileds: one for position
+        # Named tuple containing four fileds: vector of positiona and rotation
+        # error as well as their respective L2 norms
         # and one for rotation RE statistics.
-        ReErrType = namedtuple("ReErrType", ["pos", "rot"])
+        ReErrType = namedtuple("ReErrType", ["pos", "rot", "pos_vec", "rot_vec"])
 
         for i in range(n_lengths):
 
             placeholder.append(ReErrType(
                 pos=pos_errs[i],
                 rot=rot_errs[i],
+                pos_vec=pos_err_vecs[i],
+                rot_vec=rot_err_vecs[i]
             ))
         
         # Convert placeholder list to ReSubTrajLen namedtuple
@@ -712,19 +738,19 @@ class TrajectoryEval:
 
         axs["box_pos"].grid(visible=True, axis="y")
         axs["box_pos"].set_title("Translation error")
+        axs["box_pos"].boxplot(pos_errs)
         axs["box_pos"].set_xlabel("Subtrajectory length [m]")
         axs["box_pos"].set_ylabel("Translation error [m]")
         axs["box_pos"].set_xticks(range(1, len(trajec_lengths) + 1))
         axs["box_pos"].set_xticklabels([str(i) for i in trajec_lengths])
-        axs["box_pos"].boxplot(pos_errs)
 
         axs["box_rot"].grid(visible=True, axis="y")
         axs["box_rot"].set_title("Rotation error")
+        axs["box_rot"].boxplot(rot_errs)
         axs["box_rot"].set_xlabel("Subtrajectory length [m]")
         axs["box_rot"].set_ylabel("Rotation error [deg]")
         axs["box_rot"].set_xticks(range(1, len(trajec_lengths) + 1))
         axs["box_rot"].set_xticklabels([str(i) for i in trajec_lengths])
-        axs["box_rot"].boxplot(rot_errs)
 
         # If mono: analyse scale drift
         if self.sensor_config == "mono":
@@ -953,14 +979,15 @@ class TrajectoryEval:
 
 if __name__ == "__main__":
 
-    Structure_Easy = "/home/ubuntu/ws_blue/data/pipeline_runs/tank/Structure_Easy/stereo_only/live_trajec/live_trajec_01.txt"
+    Structure_Easy = "/home/ubuntu/ws_blue/data/runs/Structure_Easy/sid/live_trajec_01.txt"
     gt_Structure_Easy = "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/Structure_Easy/gt_data.txt"
 
-    te = TrajectoryEval(odometry_path=Structure_Easy,
-                        gt_path=gt_Structure_Easy,    
+    te = TrajectoryEval(odometry_path="/home/ubuntu/ws_blue/data/runs/Structure_Medium/sid/live_trajec_08.txt",
+                        gt_path="/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/Structure_Medium/gt_data.txt",    
                         sensor_config="stereo", gravity_vector=[-0, -1, 0])
     te.align()
-    ate = te.absolute_trajectory_error()
+    te.draw_trajectory(gt=True)      
+    rte = te.relative_error(trajec_lenghts=(0.1, 0.5, 1), show=True)
     # re = te.relative_error(trajec_lenghts=[0.1, 0.4, 1.6, 6.4],
     #                   show=True
     #                   # save=[Path().cwd().joinpath("subtraj.png"), Path().cwd().joinpath("stats.png")]
