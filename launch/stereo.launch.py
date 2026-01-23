@@ -25,7 +25,7 @@ def generate_launch_description():
             namespace='ORB_SLAM3',
             output='screen',
             parameters=[
-                {'settings_file': package_dir + '/orb_slam3/config/Stereo/paramsAquaSlam.yaml'},
+                {'settings_file': package_dir + '/orb_slam3/config/Stereo/paramsAquaSlam_WholeTank.yaml'},
                 {'voc_file': package_dir + '/orb_slam3/Vocabulary/ORBvoc.txt.bin'},
                 {'img0_topic': '/camera/left/image_dehazed/raw'},
                 {'img1_topic': '/camera/right/image_dehazed/raw'},
