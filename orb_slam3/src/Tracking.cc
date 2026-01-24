@@ -1839,9 +1839,25 @@ bool Tracking::PredictStateIMU()
         const float t12 = mCurrentFrame.mpImuPreintegratedFrame->dT;
 
         Eigen::Matrix3f Rwb2 = IMU::NormalizeRotation(Rwb1 * mCurrentFrame.mpImuPreintegratedFrame->GetDeltaRotation(mLastFrame.mImuBias));
-        Eigen::Vector3f twb2 = twb1 + Vwb1*t12 + 0.5f*t12*t12*Gz+ Rwb1 * mCurrentFrame.mpImuPreintegratedFrame->GetDeltaPosition(mLastFrame.mImuBias);
-        Eigen::Vector3f Vwb2 = Vwb1 + t12*Gz + Rwb1 * mCurrentFrame.mpImuPreintegratedFrame->GetDeltaVelocity(mLastFrame.mImuBias);
-
+        
+        // Do position and velocity delta with DVL if available:
+        Eigen::Vector3f twb2, Vwb2;
+        if (this->mbUseDvl){
+            // We will need this
+            Eigen::Vector3f itid = DVL::Calib::Tid.translation();
+            Eigen::Vector3f gyr_bias_est = {mLastFrame.mImuBias.bwx, mLastFrame.mImuBias.bwy, mLastFrame.mImuBias.bwz};
+            // Incrementing the IMU body position with the DVL position delta
+            twb2 = twb1 + itid - mCurrentFrame.mpImuPreintegratedFrame->GetDeltaRotation(mLastFrame.mImuBias) * itid;
+            twb2 = twb2 + mCurrentFrame.mpImuPreintegratedFrame->GetDvlPositionDelta(gyr_bias_est.cast<double>());
+            // Setting the new velocity as the most recent DVL velocity. Convert to IMU body frame Rj * Rid * DjVj
+            Vwb2 = Rwb2 * DVL::Calib::Tid.so3().matrix() * mCurrentFrame.mLatestDvlPoint.v;
+            // std::cout << "Did DVL pose prediction!!!!!" << std::endl;
+        }
+        // If there is no DVL: use normal IMU prediction
+        else{
+            twb2 = twb1 + Vwb1*t12 + 0.5f*t12*t12*Gz+ Rwb1 * mCurrentFrame.mpImuPreintegratedFrame->GetDeltaPosition(mLastFrame.mImuBias);
+            Vwb2 = Vwb1 + t12*Gz + Rwb1 * mCurrentFrame.mpImuPreintegratedFrame->GetDeltaVelocity(mLastFrame.mImuBias);
+        }
         mCurrentFrame.SetImuPoseVelocity(Rwb2,twb2,Vwb2);
 
         mCurrentFrame.mImuBias = mLastFrame.mImuBias;
