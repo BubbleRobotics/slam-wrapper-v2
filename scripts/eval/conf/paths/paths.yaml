@@ -25,6 +25,8 @@ tank:
       HalfTank_Easy: "/home/ubuntu/ws_blue/data/runs/HalfTank_Easy/si"
       HalfTank_Medium: "/home/ubuntu/ws_blue/data/runs/HalfTank_Medium/si"
       HalfTank_Hard: "/home/ubuntu/ws_blue/data/runs/HalfTank_Hard/si"
+      WholeTank_Medium: "/home/ubuntu/ws_blue/data/runs/WholeTank_Medium/si"
+      WholeTank_Hard: "/home/ubuntu/ws_blue/data/runs/WholeTank_Hard/si"
 
     sid:
       Structure_Easy: "/home/ubuntu/ws_blue/data/runs/Structure_Easy/sid"
@@ -33,3 +35,5 @@ tank:
       HalfTank_Easy: "/home/ubuntu/ws_blue/data/runs/HalfTank_Easy/sid"
       HalfTank_Medium: "/home/ubuntu/ws_blue/data/runs/HalfTank_Medium/sid"
       HalfTank_Hard: "/home/ubuntu/ws_blue/data/runs/HalfTank_Hard/sid"
+      WholeTank_Medium: "/home/ubuntu/ws_blue/data/runs/WholeTank_Medium/sid"
+      WholeTank_Hard: "/home/ubuntu/ws_blue/data/runs/WholeTank_Hard/sid"
