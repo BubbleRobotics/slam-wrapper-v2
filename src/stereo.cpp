@@ -26,6 +26,7 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
     this->declare_parameter("img1_topic", "/camera/right/image_raw"); // topic to receive image messages
     this->declare_parameter("imu_topic", "/imu/data"); // topic to receive IMU messages
     this->declare_parameter("dvl_topic", "/dvl/data");  // topic DVL messages
+    this->declare_parameter<double>("dvl_std", 0.0101);  // Standard deviation of DVL measurement noise
     this->declare_parameter("enable_debug_window", true); // Enable debug window showing SLAM in pangolin/opencv
     this->declare_parameter("is_inertial", true); // switch for inertial and non-inertial mode
     this->declare_parameter("manual_time_sync", false); // switch for manual time synchronization
@@ -61,6 +62,8 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
     rclcpp::Parameter imuFromYamlParam = this->get_parameter("imu_from_yaml");
     imu_from_yaml = imuFromYamlParam.as_bool();
 
+    double dvlStd = this->get_parameter("dvl_std").as_double();
+
     //* DEBUG print
     RCLCPP_INFO(this->get_logger(), "nodeName %s", nodeName.c_str());
     RCLCPP_INFO(this->get_logger(), "voc_file %s", vocFilePath.c_str());
@@ -72,6 +75,7 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
     RCLCPP_INFO(this->get_logger(), "manual_time_sync %b", manualTimeSync);
     RCLCPP_INFO(this->get_logger(), "imu_from_yaml %b", imu_from_yaml);
     RCLCPP_INFO(this->get_logger(), "dvl_topic: %s", dvlTopic.c_str());
+    RCLCPP_INFO(this->get_logger(), "dvl_std: %lf", dvlStd);
 
 
     //set up stereo subscribers with message_filters
