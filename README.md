@@ -49,8 +49,11 @@ python3 eco_inspection.py
 This should automatically drive to the top left eco-structure and after a couple of seconds start the inspection run. At this point in time we can start the ORB-SLAM3 pipeline
 
 MONO-INERTIAL: ros2 launch ros2_orb_slam3 mono.launch.py
+
 MONO: ros2 launch ros2_orb_slam3 mono.launch.py use_inertial:=false
+
 STEREO-INERTIAL: ros2 launch ros2_orb_slam3 stereo.launch.py
+
 STEREO: ros2 launch ros2_orb_slam3 stereo.launch.py use_inertial:=false
 
 The output topics will always have the following structure
