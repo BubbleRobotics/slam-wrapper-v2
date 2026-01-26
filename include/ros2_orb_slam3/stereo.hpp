@@ -64,6 +64,7 @@
 #include <nav_msgs/msg/path.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/static_transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
@@ -131,6 +132,7 @@ class StereoMode : public rclcpp::Node
         rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr trackingImagePub_;
 
         std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster_;
+        std::shared_ptr<tf2_ros::StaticTransformBroadcaster> staticTfBroadcaster_;
 
         //* ORB_SLAM3 related variables
         ORB_SLAM3::System* pAgent; // pointer to a ORB SLAM3 object
@@ -152,7 +154,6 @@ class StereoMode : public rclcpp::Node
         std::string imuFrameId_ = "";
         bool publishTf_ = true;
         bool publishPointcloud_ = true;
-        bool has_cam_to_base_tf_ = false;
 
         // frame transform vars
         tf2_ros::Buffer tf_buffer_;
@@ -166,6 +167,9 @@ class StereoMode : public rclcpp::Node
         std::mutex mutex_alignment_;
         std::string worldGazeboFrameId_ = "map";
         std::string realsenseFrameId_ = "realsense_d455_link_L";
+
+        // Additional variables for the EKF DVL late sensor fusion
+        bool has_cam_to_base_tf_ = false;
 
         //* Helper functions
         // ORB_SLAM3::eigenMatXf convertToEigenMat(const std_msgs::msg::Float32MultiArray& msg); // Helper method, converts semantic matrix eigenMatXf, a Eigen 4x4 float matrix
@@ -188,16 +192,18 @@ class StereoMode : public rclcpp::Node
 
         // Publishers for Orb Slam Output
         void PublishOrbSlamOutput(const Sophus::SE3f& T_orbw2orbcam, 
+                                    const Eigen::Matrix<float, 6, 6>& covariance,
                                     const sensor_msgs::msg::Image::ConstSharedPtr img_msg, 
                                     const cv_bridge::CvImageConstPtr& cv_ptr);
         void PublishPose(const Sophus::SE3f& T_orbw2orbcam, const std_msgs::msg::Header& header);
-        void PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const std_msgs::msg::Header& header);
+        void PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const Eigen::Matrix<float, 6, 6>& covariance, const std_msgs::msg::Header& header);
         void PublishPath(const Sophus::SE3f& T_orbcam2gzbw, const std_msgs::msg::Header& header);
         void PublishMapPoints(const std_msgs::msg::Header& header);
         void PublishTrackingImage(const cv::Mat& image, const sensor_msgs::msg::Image::ConstSharedPtr img_msg);
         void OnOrbMapTransformed(const Sophus::SE3f& T, float s);
         void PublishWorldToOrbMapTF(const rclcpp::Time &stamp);
         void PublishOrbMapToOrbCamTF(const Sophus::SE3f& T_orbw2orbcam, const rclcpp::Time &stamp);
+        void PublishMapToBaseLinkEstTF(const Sophus::SE3f& T_baselink_est2gzbw, const rclcpp::Time &stamp);
 };
 
 #endif

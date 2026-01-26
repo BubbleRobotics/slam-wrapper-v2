@@ -81,6 +81,11 @@ public:
     void SetStepByStep(bool bSet);
     bool GetStepByStep();
 
+    // Extract the covariance matrix after the last pose optimization
+    inline Eigen::Matrix<float,6,6> GetCurrentPoseCovariance() const {
+        return mCurrentPoseCovariance;
+    }
+
     // Load new settings
     // The focal lenght should be similar or scale prediction will fail when projecting points
     void ChangeCalibration(const string &strSettingPath);
@@ -89,6 +94,8 @@ public:
     void InformOnlyTracking(const bool &flag);
 
     void UpdateFrameIMU(const float s, const IMU::Bias &b, KeyFrame* pCurrentKeyFrame);
+    void UpdatePoseCovariance(int inliers);
+    
     KeyFrame* GetLastKeyFrame()
     {
         return mpLastKeyFrame;
@@ -252,6 +259,9 @@ protected:
 
     // Last Bias Estimation (at keyframe creation)
     IMU::Bias mLastBias;
+
+    // Last Covariance Matrix Computed
+    Eigen::Matrix<float,6,6> mCurrentPoseCovariance;
 
     // In case of performing only localization, this flag is true when there are no matches to
     // points in the map. Still tracking will continue if there are enough matches with temporal points.

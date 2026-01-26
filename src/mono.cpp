@@ -262,28 +262,28 @@ void MonoMode::ImgCallback(const sensor_msgs::msg::Image::SharedPtr img_msg)
         
         try{
             // lookup transform between real world (gazebo world) and camera frame to link orbslam world to real world
-            // auto tf_c_w_real = tf_buffer_.lookupTransform(
-            //     worldGazeboFrameId_,
-            //     realsenseFrameId_,
-            //     tf2::TimePointZero); // Get latest available transform
-            // // T_gzbcam2gzbw: points in gazebo camera frame to gazebo world frame
-            // Sophus::SE3f T_gzbcam2gzbw(
-            //     Eigen::Quaternionf(
-            //         tf_c_w_real.transform.rotation.w,
-            //         tf_c_w_real.transform.rotation.x,
-            //         tf_c_w_real.transform.rotation.y,
-            //         tf_c_w_real.transform.rotation.z),
-            //     Eigen::Vector3f(
-            //         tf_c_w_real.transform.translation.x,
-            //         tf_c_w_real.transform.translation.y,
-            //         tf_c_w_real.transform.translation.z)
-            // ); 
+            auto tf_c_w_real = tf_buffer_.lookupTransform(
+                worldGazeboFrameId_,
+                realsenseFrameId_,
+                tf2::TimePointZero); // Get latest available transform
+            // T_gzbcam2gzbw: points in gazebo camera frame to gazebo world frame
+            Sophus::SE3f T_gzbcam2gzbw(
+                Eigen::Quaternionf(
+                    tf_c_w_real.transform.rotation.w,
+                    tf_c_w_real.transform.rotation.x,
+                    tf_c_w_real.transform.rotation.y,
+                    tf_c_w_real.transform.rotation.z),
+                Eigen::Vector3f(
+                    tf_c_w_real.transform.translation.x,
+                    tf_c_w_real.transform.translation.y,
+                    tf_c_w_real.transform.translation.z + 0.1f)
+            ); 
 
             {
                 std::lock_guard<std::mutex> lock(mutex_alignment_);
                 // T_orbw2gzbw: points in orb world frame to gazebo world frame
-                // T_orbw2gzbw = T_gzbcam2gzbw * T_orbw2orbcam; //Use this to link it to gazebo world frame
-                T_orbw2gzbw = T_orbw2orbcam; 
+                T_orbw2gzbw = T_gzbcam2gzbw * T_orbw2orbcam; //Use this to link it to gazebo world frame
+                // T_orbw2gzbw = T_orbw2orbcam; //No link to world frame but instead a static first frame 
             } 
                 
             has_initial_alignment_ = true;

@@ -28,7 +28,7 @@
 #include "ros2_orb_slam3/stereo.hpp"
 
 //* Constructor
-StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
+StereoMode::StereoMode() :Node("stereo_node"), tf_buffer_(this->get_clock()),
       tf_listener_(tf_buffer_)
 {
     RCLCPP_INFO(this->get_logger(), "\nORB-SLAM3 (stereo-inertial) NODE STARTED");
@@ -123,6 +123,7 @@ StereoMode::StereoMode() :Node("realsense_node"), tf_buffer_(this->get_clock()),
     // TF broadcaster
     if (publishTf_) {
         tfBroadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
+        staticTfBroadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
     }
 
     // Start of VSLAM
@@ -173,6 +174,32 @@ void StereoMode::InitializeVSLAM(){
     RCLCPP_INFO(this->get_logger(), "ORB-SLAM3 Stereo Node initialized");
 }
 
+bool StereoMode::InitCameraBaseTransform()
+{
+    if (has_cam_to_base_tf_) {
+        return true;
+    }
+
+    try {
+        T_gzbcam2gzbBL = 
+            tf_buffer_.lookupTransform(
+                "base_link",              // target
+                realsenseFrameId_,        // source (left camera)
+                tf2::TimePointZero
+            );
+
+        has_cam_to_base_tf_ = true;
+
+        RCLCPP_INFO(this->get_logger(), "TF Received");
+        return true;
+
+    } catch (const tf2::TransformException &ex) {
+        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+            "Waiting for transform: %s", ex.what());
+        return false;
+    }
+}
+
 bool StereoMode::InitImuCamTransform()
 {
     // check if frame IDs are set
@@ -216,31 +243,6 @@ bool StereoMode::InitImuCamTransform()
     }
 }
 
-bool StereoMode::InitCameraBaseTransform()
-{
-    if (has_cam_to_base_tf_) {
-        return true;
-    }
-
-    try {
-        T_gzbcam2gzbBL = 
-            tf_buffer_.lookupTransform(
-                "base_link",              // target
-                realsenseFrameId_,        // source (left camera)
-                tf2::TimePointZero
-            );
-
-        has_cam_to_base_tf_ = true;
-
-        RCLCPP_INFO(this->get_logger(), "TF Received");
-        return true;
-
-    } catch (const tf2::TransformException &ex) {
-        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
-            "Waiting for transform: %s", ex.what());
-        return false;
-    }
-}
 
 //* Callback to process image messages and run Stereo-SLAM node
 void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &left_img,
@@ -271,10 +273,16 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
         return;
     }
 
-
     // T_orbcam2orbw: points in camera frame to orb world frame
     // T_orbw2orbcam: points in orb world frame to camera frame
-    Sophus::SE3f T_orbcam2orbw = pAgent->TrackStereo(left_cv_ptr->image, right_cv_ptr->image, t);
+    // New Implementation that also returns a covariance matrix
+    std::pair<Sophus::SE3f, Eigen::Matrix<float, 6, 6>> result = pAgent->TrackWithCovariance(left_cv_ptr->image, right_cv_ptr->image, t);
+    Sophus::SE3f T_orbcam2orbw = result.first;
+    Eigen::Matrix<float, 6, 6> covariance = result.second;
+
+    //Normal Implementation that does not return the covariance matrix
+    //Sophus::SE3f T_orbcam2orbw = pAgent->TrackStereo(left_cv_ptr->image, right_cv_ptr->image, t);
+    
     Sophus::SE3f T_orbw2orbcam = T_orbcam2orbw.inverse();
 
     if (!has_initial_alignment_)
@@ -288,28 +296,28 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
         
         try{
             // lookup transform between real world (gazebo world) and camera frame to link orbslam world to real world
-            // auto tf_c_w_real = tf_buffer_.lookupTransform(
-            //     worldGazeboFrameId_,
-            //     realsenseFrameId_,
-            //     tf2::TimePointZero); // Get latest available transform
-            // // T_gzbcam2gzbw: points in gazebo camera frame to gazebo world frame
-            // Sophus::SE3f T_gzbcam2gzbw(
-            //     Eigen::Quaternionf(
-            //         tf_c_w_real.transform.rotation.w,
-            //         tf_c_w_real.transform.rotation.x,
-            //         tf_c_w_real.transform.rotation.y,
-            //         tf_c_w_real.transform.rotation.z),
-            //     Eigen::Vector3f(
-            //         tf_c_w_real.transform.translation.x,
-            //         tf_c_w_real.transform.translation.y,
-            //         tf_c_w_real.transform.translation.z)
-            // ); 
+            auto tf_c_w_real = tf_buffer_.lookupTransform(
+                worldGazeboFrameId_,
+                realsenseFrameId_,
+                tf2::TimePointZero); // Get latest available transform
+            // T_gzbcam2gzbw: points in gazebo camera frame to gazebo world frame
+            Sophus::SE3f T_gzbcam2gzbw(
+                Eigen::Quaternionf(
+                    tf_c_w_real.transform.rotation.w,
+                    tf_c_w_real.transform.rotation.x,
+                    tf_c_w_real.transform.rotation.y,
+                    tf_c_w_real.transform.rotation.z),
+                Eigen::Vector3f(
+                    tf_c_w_real.transform.translation.x,
+                    tf_c_w_real.transform.translation.y,
+                    tf_c_w_real.transform.translation.z + 0.1f)
+            ); 
 
             {
                 std::lock_guard<std::mutex> lock(mutex_alignment_);
                 // T_orbw2gzbw: points in orb world frame to gazebo world frame
-                // T_orbw2gzbw = T_gzbcam2gzbw * T_orbw2orbcam; //Use this to link it to gazebo world frame
-                T_orbw2gzbw = T_orbw2orbcam;
+                T_orbw2gzbw = T_gzbcam2gzbw * T_orbw2orbcam; //Use this to link it to gazebo world frame
+                // T_orbw2gzbw = T_orbw2orbcam; //No link to world frame but instead a static first frame 
             } 
                 
             has_initial_alignment_ = true;
@@ -323,9 +331,9 @@ void StereoMode::StereoCallback(const sensor_msgs::msg::Image::ConstSharedPtr &l
     }
 
     // check if it was successful and publish data
-    if(pAgent->GetTrackingState() == ORB_SLAM3::Tracking::OK)
+    if(pAgent->GetTrackingState() == ORB_SLAM3::Tracking::OK || pAgent->GetTrackingState() == ORB_SLAM3::Tracking::RECENTLY_LOST)
     {
-        PublishOrbSlamOutput(T_orbw2orbcam, left_img, left_cv_ptr);
+        PublishOrbSlamOutput(T_orbw2orbcam, covariance, left_img, left_cv_ptr);
     }
     else
     {
@@ -406,6 +414,7 @@ void StereoMode::ImuCallback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
 }
 
 void StereoMode::PublishOrbSlamOutput(const Sophus::SE3f& T_orbw2orbcam, 
+                                      const Eigen::Matrix<float, 6, 6>& covariance,
                                       const sensor_msgs::msg::Image::ConstSharedPtr img_msg,
                                       const cv_bridge::CvImageConstPtr& cv_ptr)
 {
@@ -423,7 +432,7 @@ void StereoMode::PublishOrbSlamOutput(const Sophus::SE3f& T_orbw2orbcam,
     PublishPose(T_orbw2orbcam, img_msg->header);
 
     // Publish odometry
-    PublishOdometry(T_orbcam2gzbw, img_msg->header);
+    PublishOdometry(T_orbcam2gzbw, covariance, img_msg->header);
 
     // Publish path
     PublishPath(T_orbcam2gzbw, img_msg->header);
@@ -467,26 +476,8 @@ void StereoMode::PublishPose(const Sophus::SE3f& T_orbw2orbcam, const std_msgs::
     posePub_->publish(pose_msg);
 }
 
-void StereoMode::PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const std_msgs::msg::Header& header)
+void StereoMode::PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const Eigen::Matrix<float, 6, 6>& covariance, const std_msgs::msg::Header& header)
 {
-    // nav_msgs::msg::Odometry odom_msg;
-    // odom_msg.header.stamp = header.stamp;
-    // odom_msg.header.frame_id =  worldGazeboFrameId_;
-    // odom_msg.child_frame_id = cameraFrameOrbId_;
-
-    // Eigen::Vector3f t = T_orbcam2gzbw.translation();
-    // Eigen::Quaternionf q = T_orbcam2gzbw.unit_quaternion();
-    
-    // odom_msg.pose.pose.position.x = t.x();
-    // odom_msg.pose.pose.position.y = t.y();
-    // odom_msg.pose.pose.position.z = t.z();
-    
-    // odom_msg.pose.pose.orientation.x = q.x();
-    // odom_msg.pose.pose.orientation.y = q.y();
-    // odom_msg.pose.pose.orientation.z = q.z();
-    // odom_msg.pose.pose.orientation.w = q.w();
-    
-    // odomPub_->publish(odom_msg);
     nav_msgs::msg::Odometry odom_msg;
     odom_msg.header.stamp = header.stamp;
     odom_msg.header.frame_id = worldGazeboFrameId_;
@@ -506,8 +497,17 @@ void StereoMode::PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const std_ms
 
     Sophus::SE3f T_baselink_est2gzbw = T_orbcam2gzbw * T_cam2base.inverse(); 
 
+    PublishMapToBaseLinkEstTF(T_baselink_est2gzbw, header.stamp);
+
     Eigen::Vector3f t = T_baselink_est2gzbw.translation();
     Eigen::Quaternionf q = T_baselink_est2gzbw.unit_quaternion();
+
+    Eigen::Matrix3f R_cam2base = T_cam2base.unit_quaternion().toRotationMatrix();
+    Eigen::Matrix<float,6,6> adj = Eigen::Matrix<float,6,6>::Zero();
+    adj.topLeftCorner<3,3>() = R_cam2base;
+    adj.bottomRightCorner<3,3>() = R_cam2base;
+
+    Eigen::Matrix<float,6,6> cov_base = adj * covariance * adj.transpose();
 
     odom_msg.pose.pose.position.x = t.x();
     odom_msg.pose.pose.position.y = t.y();
@@ -518,17 +518,25 @@ void StereoMode::PublishOdometry(const Sophus::SE3f& T_orbcam2gzbw, const std_ms
     odom_msg.pose.pose.orientation.z = q.z();
     odom_msg.pose.pose.orientation.w = q.w();
 
+    for (int r = 0; r < 6; ++r)
+    {
+        for (int c = 0; c < 6; ++c)
+        {
+            odom_msg.pose.covariance[r * 6 + c] = static_cast<double>(cov_base(r, c));
+        }
+    }
+
     odomPub_->publish(odom_msg);
     
     try {
         // lookup latest available transform from 'map' to the realsense frame
         geometry_msgs::msg::TransformStamped tf_map_realsense =
-            tf_buffer_.lookupTransform(worldGazeboFrameId_, realsenseFrameId_, tf2::TimePointZero);
+            tf_buffer_.lookupTransform(worldGazeboFrameId_, "base_link", tf2::TimePointZero);
          nav_msgs::msg::Odometry gt_odom;
          // Use image timestamp so SLAM outputs remain time-aligned
          gt_odom.header.stamp = header.stamp;
          gt_odom.header.frame_id = worldGazeboFrameId_;
-         gt_odom.child_frame_id = realsenseFrameId_;
+         gt_odom.child_frame_id = "base_link";
  
          gt_odom.pose.pose.position.x = tf_map_realsense.transform.translation.x;
          gt_odom.pose.pose.position.y = tf_map_realsense.transform.translation.y;
@@ -726,6 +734,27 @@ void StereoMode::PublishOrbMapToOrbCamTF(const Sophus::SE3f& T_orbw2orbcam, cons
     tf.transform.translation.y = t.y();
     tf.transform.translation.z = t.z();
     
+    tf.transform.rotation.x = q.x();
+    tf.transform.rotation.y = q.y();
+    tf.transform.rotation.z = q.z();
+    tf.transform.rotation.w = q.w();
+
+    tfBroadcaster_->sendTransform(tf);
+}
+
+void StereoMode::PublishMapToBaseLinkEstTF(const Sophus::SE3f& T_baselink_est2gzbw, const rclcpp::Time &stamp)
+{
+    Eigen::Vector3f t = T_baselink_est2gzbw.translation();
+    Eigen::Quaternionf q = T_baselink_est2gzbw.unit_quaternion();
+
+    geometry_msgs::msg::TransformStamped tf;
+    tf.header.stamp = stamp;
+    tf.header.frame_id = worldGazeboFrameId_;
+    tf.child_frame_id = "baselinkOrb";
+    
+    tf.transform.translation.x = t.x();
+    tf.transform.translation.y = t.y();
+    tf.transform.translation.z = t.z();
     tf.transform.rotation.x = q.x();
     tf.transform.rotation.y = q.y();
     tf.transform.rotation.z = q.z();
