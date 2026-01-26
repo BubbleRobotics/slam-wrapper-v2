@@ -1,45 +1,35 @@
-"""Luis Blunschi 27.10.2025
-
-Mockup planner script to command ROV in a snake pattern underwater using MAVLink and ROS2."""
-
-
-
+# ********************************************************************************************************************************#
+#@@@@@@@@@@@@@@@@@@@@@@@             @@@@@@@@@@@ @@@       @@@ @@@@@@@@@@@ @@@@@@@@@@@@ @@@        @@@@@@@@@@                    
+#@@@@@@@@@@@@@@@@@@@@@@@@@           @@       @@@@@@       @@@ @@@      @@ @@@       @@ @@@        @@                            
+#@@@@@@@@@@@@@@@@@@@@@@@@@@          @@@@@@@@@@@ @@@       @@@ @@@@@@@@@@@ @@@@@@@@@@@@ @@@        @@@@@@@@@@                    
+#@@@@@@@@@@@@@@@@@@@@@@@@@@          @@        @@@@@       @@@ @@@      @@ @@@       @@ @@@        @@                            
+#@@@@@@@@@@@@@@@@@@@@@@@@@           @@@@@@@@@@@@ @@@@@@@@@@@  @@@@@@@@@@@ @@@@@@@@@@@@ @@@@@@@@@@ @@@@@@@@@@                    
+#                      @@@                                                                                                       
+#                      @@@                                                                                                       
+#                    @@@@@@                                                                                                   
+#@@@@@@@@@@@@@@@@@@@@@@@@@@@         @@@@@@@@@@@  @@@@@@@@@@@  @@@@@@@@@@@  @@@@@@@@@@@ @@@@@@@@@@@ @@@ @@@@@@@@@@@@ @@@@@@@@@@@@
+#@@@@@@@@@@@@@@@@@@@@@@@@@@@         @@       @@@@@@       @@@ @@       @@ @@@       @@@     @@     @@@ @@        @@ @@        
+#@@@@@@@@@@@@@@@@@@@@@@@@@@          @@@@@@@@@@@ @@@       @@@ @@@@@@@@@@@ @@@       @@@     @@     @@@ @@            @@@@@@@@@@@
+#@@@@@@@@@@@@@@@@@@@@@@@@@@          @@      @@  @@@       @@@ @@       @@@@@@       @@@     @@     @@@ @@        @@           @@
+#@@@@@@@@@@@@@@@@@@@@@@@@            @@       @@  @@@@@@@@@@@  @@@@@@@@@@@  @@@@@@@@@@@      @@     @@@ @@@@@@@@@@@  @@@@@@@@@@@@
+#
+#   eco_inspection.py
+#
+#   Description: Mockup planner script to command ROV in a snake pattern underwater using MAVLink and ROS2.
+#
+#   By: Luis Blunschi <lblunschi@ethz.ch>
+#
+#   Created: 2025/10/27 09:39:15 by Luis Blunschi 
+#   Updated: 2026/01/26 15:50:15 by Diego Hernandez
+#
+#********************************************************************************************************************************#
 from pymavlink import mavutil
-
 import math
-
 import time
-
 from mavros_msgs.srv import CommandBool, SetMode
-
 import rclpy
 
-
-
-# -------------------------
-
-# Connect to ROV
-
-# -------------------------
-
-master = mavutil.mavlink_connection('udp:127.0.0.1:14550')
-
-master.wait_heartbeat()
-
-print("Connected to ROV")
-
-
-
-time.sleep(1)
-
-
-
-# -------------------------
-
 # Utility functions
-
-# -------------------------
-
 def set_mode(mode="GUIDED"):
 
     rclpy.init()
@@ -340,15 +330,15 @@ def reached_goal(x_east_goal, y_north_goal, z_down_goal, yaw_goal, threshold=0.0
 
     # Get yaw for logging
 
-    att_msg = master.recv_match(type='ATTITUDE', blocking=False)
+    # att_msg = master.recv_match(type='ATTITUDE', blocking=False)
 
-    yaw_deg = math.degrees(att_msg.yaw) % 360 if att_msg else None
+    # yaw_deg = math.degrees(att_msg.yaw) % 360 if att_msg else None
 
 
 
     # Print safely even if yaw is None
 
-    yaw_str = f"{yaw_deg:.1f}°" if yaw_deg is not None else "N/A"
+    # yaw_str = f"{yaw_deg:.1f}°" if yaw_deg is not None else "N/A"
 
     print(f"Current: dist_x={x_dist:.7f}, dist_y={y_dist:.7f}, dist_depth={depth_dist:.2f} m, dist_yaw={yaw_dist}, total_dist={total_dist:.2f} m")
 
@@ -357,85 +347,34 @@ def reached_goal(x_east_goal, y_north_goal, z_down_goal, yaw_goal, threshold=0.0
     return total_dist < threshold, total_dist
 
 
+# Connect to ROV
+master = mavutil.mavlink_connection('udp:127.0.0.1:14550')
+master.wait_heartbeat()
+print("Connected to ROV")
+time.sleep(1)
 
-
-
-# -------------------------
 
 # Snake path parameters
-
-# -------------------------
-
 home = master.recv_match(type='HOME_POSITION', blocking=True, timeout=2)
-
-
-
-
-
-top_left = {"lat": 47.376824, "lon": 8.5417325, "depth": 3.75, "yaw": 180}
-
-top_right = {"lat": 47.376824, "lon": 8.54172,   "depth": 3.75, "yaw": 180}
-
-bottom_left = {"lat": 47.376824, "lon": 8.5417325, "depth": 5.15,  "yaw": 180}
-
-bottom_right = {"lat": 47.376824, "lon": 8.54172,   "depth": 5.15,  "yaw": 180}
-
-
-
-top_left = {"lat":41.358508333, "lon": 2.185419444, "altitude: 0.0depth": 3.1, "yaw": 105.6923}
-
-top_right = {"lat": 41.3585, "lon": 2.185416667,    "depth": 3.75, "yaw": 105.6923}
-
-bottom_left = {"lat": 41.358508333, "lon": 2.185419444, "depth": 5.15,  "yaw": 105.6923}
-
-bottom_right = {"lat": 41.3585, "lon": 2.185416667,   "depth": 5.15,  "yaw": 105.6923}
-
-
-
 top_left = {"x":10.92, "y": 13.55, "depth": 3.15, "yaw": 105.6923}
-
 top_right = {"x": 10.7, "y": 12.63,    "depth": 3.15, "yaw": 105.6923}
-
 bottom_left = {"x": 10.92, "y": 13.56, "depth": 4.90,  "yaw": 105.6923}
-
 bottom_right = {"x": 10.7, "y": 12.63,  "depth": 4.90,  "yaw": 105.6923} 
-
-
-
 depth_step = 0.2
-
 current_depth = top_left["depth"]
-
 max_depth = bottom_left["depth"]
-
 going_right = True
-
 yaw = top_left["yaw"]
-
 checked_apriltags = False
-
-# NEW: perform an initial up->down pass if starting at bottom-left
-start_at_bottom_left = True   # set to False to disable the initial up/down
+start_at_bottom_left = True 
 _initial_updown_done = False
 
 
-
-# -------------------------
-
 # Arm system
-
-# -------------------------
-
 arm_vehicle_and_set_mode(True,"GUIDED")
 
-# -------------------------
-
 # Execute snake path
-
-# -------------------------
-
 done = False
-
 while not done:
 
     if current_depth + depth_step > max_depth:
@@ -516,7 +455,6 @@ while not done:
 
 
     # Move to start of line
-
     goto_position(x_start, y_start, current_depth, yaw_deg=yaw)
 
     reached = False
@@ -556,7 +494,6 @@ while not done:
     going_right = not going_right
 
     print(f"Next pass at depth {current_depth:.2f} m, direction: {'right' if going_right else 'left'}")
-
 
 
 print("Snake path complete. No further commands sent.")

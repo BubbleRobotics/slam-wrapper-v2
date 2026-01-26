@@ -1,24 +1,39 @@
-/* *************************************************************************** */
-/*                                                    ########  ########       */
-/*   stereo.cpp                                       ##     ## ##     ##      */
-/*                                                    ##     ## ##     ##      */
-/*   By: Paul Joseph <paul@bubble-robotics.com>       ########  ########       */
-/*                                                    ##     ## ##   ##        */
-/*   Created: 2025/11/13 17:07:03 by Paul Joseph      ##     ## ##    ##       */
-/*   Updated: 2025/11/13 17:07:03 by Paul Joseph      ########  ##     ##      */
-/*                                                                             */
-/* *************************************************************************** */
+// ********************************************************************************************************************************#
+//@@@@@@@@@@@@@@@@@@@@@@@             @@@@@@@@@@@ @@@       @@@ @@@@@@@@@@@ @@@@@@@@@@@@ @@@        @@@@@@@@@@                    
+//@@@@@@@@@@@@@@@@@@@@@@@@@           @@       @@@@@@       @@@ @@@      @@ @@@       @@ @@@        @@                            
+//@@@@@@@@@@@@@@@@@@@@@@@@@@          @@@@@@@@@@@ @@@       @@@ @@@@@@@@@@@ @@@@@@@@@@@@ @@@        @@@@@@@@@@                    
+//@@@@@@@@@@@@@@@@@@@@@@@@@@          @@        @@@@@       @@@ @@@      @@ @@@       @@ @@@        @@                            
+//@@@@@@@@@@@@@@@@@@@@@@@@@           @@@@@@@@@@@@ @@@@@@@@@@@  @@@@@@@@@@@ @@@@@@@@@@@@ @@@@@@@@@@ @@@@@@@@@@                    
+//                      @@@                                                                                                       
+//                      @@@                                                                                                       
+//                    @@@@@@                                                                                                   
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@         @@@@@@@@@@@  @@@@@@@@@@@  @@@@@@@@@@@  @@@@@@@@@@@ @@@@@@@@@@@ @@@ @@@@@@@@@@@@ @@@@@@@@@@@@
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@         @@       @@@@@@       @@@ @@       @@ @@@       @@@     @@     @@@ @@        @@ @@        
+//@@@@@@@@@@@@@@@@@@@@@@@@@@          @@@@@@@@@@@ @@@       @@@ @@@@@@@@@@@ @@@       @@@     @@     @@@ @@            @@@@@@@@@@@
+//@@@@@@@@@@@@@@@@@@@@@@@@@@          @@      @@  @@@       @@@ @@       @@@@@@       @@@     @@     @@@ @@        @@           @@
+//@@@@@@@@@@@@@@@@@@@@@@@@            @@       @@  @@@@@@@@@@@  @@@@@@@@@@@  @@@@@@@@@@@      @@     @@@ @@@@@@@@@@@  @@@@@@@@@@@@
+//
+//   mono.cpp
+//
+//   Description: ROS2 Jazzy node wrapper for ORB-SLAM3 monocular/monocular-inertial mode
+//
+//   By: Paul Joseph <paul@bubble-robotics.com>
+//
+//   Created: 2025/11/13 17:07:03 by Paul Joseph
+//   Updated: 2026/01/26 15:50:15 by Diego Hernandez
+//
+//********************************************************************************************************************************#
 
 //* Includes
 #include "ros2_orb_slam3/mono.hpp"
 
 //* Constructor
-MonoMode::MonoMode() :Node("mono_inertial_node"), tf_buffer_(this->get_clock()),
+MonoMode::MonoMode() :Node("mono_node"), tf_buffer_(this->get_clock()),
       tf_listener_(tf_buffer_)
 {
     RCLCPP_INFO(this->get_logger(), "\nORB-SLAM3 (mono-inertial) NODE STARTED");
 
-    this->declare_parameter("node_name", "not_given"); // Name of this agent 
+    //* Declare parameters with default values
     this->declare_parameter("voc_file", "file_not_set"); // Needs to be overriden with appropriate name  
     this->declare_parameter("settings_file", "file_path_not_set"); // path to settings file  
     this->declare_parameter("img_topic", "/camera/left/image_raw"); // topic to receive image messages
@@ -31,8 +46,6 @@ MonoMode::MonoMode() :Node("mono_inertial_node"), tf_buffer_(this->get_clock()),
     this->declare_parameter<bool>("publish_pointcloud", true);
 
     //* Populate parameter values
-    rclcpp::Parameter nodeNameParam = this->get_parameter("node_name");
-    nodeName = nodeNameParam.as_string();
     rclcpp::Parameter vocFilePathParam = this->get_parameter("voc_file");
     vocFilePath = vocFilePathParam.as_string();
     rclcpp::Parameter settingsFilePathParam = this->get_parameter("settings_file");
@@ -45,17 +58,16 @@ MonoMode::MonoMode() :Node("mono_inertial_node"), tf_buffer_(this->get_clock()),
     enableDebugWindow = enableDebugWindowParam.as_bool();
     rclcpp::Parameter isInertialParam = this->get_parameter("is_inertial");
     isInertial = isInertialParam.as_bool();
-    rclcpp::Parameter publishTfParam = this->get_parameter("publish_tf");
-    publishTf_ = publishTfParam.as_bool();
-    rclcpp::Parameter publishPointcloudParam = this->get_parameter("publish_pointcloud");
-    publishPointcloud_ = publishPointcloudParam.as_bool();
     rclcpp::Parameter manualTimeSyncParam = this->get_parameter("manual_time_sync");
     manualTimeSync = manualTimeSyncParam.as_bool();
     rclcpp::Parameter imuFromYamlParam = this->get_parameter("imu_from_yaml");
     imu_from_yaml = imuFromYamlParam.as_bool();
+    rclcpp::Parameter publishTfParam = this->get_parameter("publish_tf");
+    publishTf_ = publishTfParam.as_bool();
+    rclcpp::Parameter publishPointcloudParam = this->get_parameter("publish_pointcloud");
+    publishPointcloud_ = publishPointcloudParam.as_bool();
     
     //* DEBUG print
-    RCLCPP_INFO(this->get_logger(), "nodeName %s", nodeName.c_str());
     RCLCPP_INFO(this->get_logger(), "voc_file %s", vocFilePath.c_str());
     RCLCPP_INFO(this->get_logger(), "settings_file_path %s", settingsFilePath.c_str());\
     RCLCPP_INFO(this->get_logger(), "img_topic %s", imgTopic.c_str());
@@ -64,20 +76,19 @@ MonoMode::MonoMode() :Node("mono_inertial_node"), tf_buffer_(this->get_clock()),
     RCLCPP_INFO(this->get_logger(), "manual_time_sync %b", manualTimeSync);
     RCLCPP_INFO(this->get_logger(), "imu_from_yaml %b", imu_from_yaml);
 
-
-    // subscribe to the image messages
+    // Subscribers
     imgSub_= this->create_subscription<sensor_msgs::msg::Image>(imgTopic, rclcpp::SensorDataQoS(), std::bind(&MonoMode::ImgCallback, this, _1));
-    // subscribe to the imu messages (if eneabled)
     if (isInertial)
     {
         imuSub_= this->create_subscription<sensor_msgs::msg::Imu>(imuTopic, rclcpp::SensorDataQoS(), std::bind(&MonoMode::ImuCallback, this, _1));
     }
+
     // Publishers
     posePub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>(
-        "~/camera_pose", 10);
+        "~/camera_pose", 10); //Publish camera pose in orb map frame
 
     odomPub_ = this->create_publisher<nav_msgs::msg::Odometry>(
-        "~/odometry", 10);
+        "~/odometry", 10); //Publish camera odometry in gazebo map frame
 
     pathPub_ = this->create_publisher<nav_msgs::msg::Path>(
         "~/trajectory", 10);
@@ -89,7 +100,6 @@ MonoMode::MonoMode() :Node("mono_inertial_node"), tf_buffer_(this->get_clock()),
         pointcloudPub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
             "~/map_points", 10);
     }
-
     trackingImagePub_ = this->create_publisher<sensor_msgs::msg::Image>(
         "~/tracking_image", 10);
     
@@ -107,7 +117,6 @@ MonoMode::MonoMode() :Node("mono_inertial_node"), tf_buffer_(this->get_clock()),
 MonoMode::~MonoMode()
 {   
     // Stop all threads
-    // Call method to write the trajectory file
     // Release resources and cleanly shutdown
     pAgent->Shutdown();
 }
@@ -252,27 +261,29 @@ void MonoMode::ImgCallback(const sensor_msgs::msg::Image::SharedPtr img_msg)
         }
         
         try{
-            auto tf_c_w_real = tf_buffer_.lookupTransform(
-                worldGazeboFrameId_,
-                realsenseFrameId_,
-                tf2::TimePointZero); // Get latest available transform
-            // T_gzbcam2gzbw: points in gazebo camera frame to gazebo world frame
-            Sophus::SE3f T_gzbcam2gzbw(
-                Eigen::Quaternionf(
-                    tf_c_w_real.transform.rotation.w,
-                    tf_c_w_real.transform.rotation.x,
-                    tf_c_w_real.transform.rotation.y,
-                    tf_c_w_real.transform.rotation.z),
-                Eigen::Vector3f(
-                    tf_c_w_real.transform.translation.x,
-                    tf_c_w_real.transform.translation.y,
-                    tf_c_w_real.transform.translation.z)
-            ); 
+            // lookup transform between real world (gazebo world) and camera frame to link orbslam world to real world
+            // auto tf_c_w_real = tf_buffer_.lookupTransform(
+            //     worldGazeboFrameId_,
+            //     realsenseFrameId_,
+            //     tf2::TimePointZero); // Get latest available transform
+            // // T_gzbcam2gzbw: points in gazebo camera frame to gazebo world frame
+            // Sophus::SE3f T_gzbcam2gzbw(
+            //     Eigen::Quaternionf(
+            //         tf_c_w_real.transform.rotation.w,
+            //         tf_c_w_real.transform.rotation.x,
+            //         tf_c_w_real.transform.rotation.y,
+            //         tf_c_w_real.transform.rotation.z),
+            //     Eigen::Vector3f(
+            //         tf_c_w_real.transform.translation.x,
+            //         tf_c_w_real.transform.translation.y,
+            //         tf_c_w_real.transform.translation.z)
+            // ); 
 
             {
                 std::lock_guard<std::mutex> lock(mutex_alignment_);
                 // T_orbw2gzbw: points in orb world frame to gazebo world frame
-                T_orbw2gzbw = T_gzbcam2gzbw * T_orbw2orbcam;
+                // T_orbw2gzbw = T_gzbcam2gzbw * T_orbw2orbcam; //Use this to link it to gazebo world frame
+                T_orbw2gzbw = T_orbw2orbcam; 
             } 
                 
             has_initial_alignment_ = true;

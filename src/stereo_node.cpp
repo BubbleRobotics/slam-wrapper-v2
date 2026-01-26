@@ -1,26 +1,41 @@
-/*
-* Originally adapted from ORB-SLAM3: Examples/ROS/src/ros_mono.cc
-* Author: Diego Hernandez
-* Version: 1.0
-* Date: 10/11/2025
-* Compatible for ROS2 Jazzy
-*/
+// ********************************************************************************************************************************#
+//@@@@@@@@@@@@@@@@@@@@@@@             @@@@@@@@@@@ @@@       @@@ @@@@@@@@@@@ @@@@@@@@@@@@ @@@        @@@@@@@@@@                    
+//@@@@@@@@@@@@@@@@@@@@@@@@@           @@       @@@@@@       @@@ @@@      @@ @@@       @@ @@@        @@                            
+//@@@@@@@@@@@@@@@@@@@@@@@@@@          @@@@@@@@@@@ @@@       @@@ @@@@@@@@@@@ @@@@@@@@@@@@ @@@        @@@@@@@@@@                    
+//@@@@@@@@@@@@@@@@@@@@@@@@@@          @@        @@@@@       @@@ @@@      @@ @@@       @@ @@@        @@                            
+//@@@@@@@@@@@@@@@@@@@@@@@@@           @@@@@@@@@@@@ @@@@@@@@@@@  @@@@@@@@@@@ @@@@@@@@@@@@ @@@@@@@@@@ @@@@@@@@@@                    
+//                      @@@                                                                                                       
+//                      @@@                                                                                                       
+//                    @@@@@@                                                                                                   
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@         @@@@@@@@@@@  @@@@@@@@@@@  @@@@@@@@@@@  @@@@@@@@@@@ @@@@@@@@@@@ @@@ @@@@@@@@@@@@ @@@@@@@@@@@@
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@         @@       @@@@@@       @@@ @@       @@ @@@       @@@     @@     @@@ @@        @@ @@        
+//@@@@@@@@@@@@@@@@@@@@@@@@@@          @@@@@@@@@@@ @@@       @@@ @@@@@@@@@@@ @@@       @@@     @@     @@@ @@            @@@@@@@@@@@
+//@@@@@@@@@@@@@@@@@@@@@@@@@@          @@      @@  @@@       @@@ @@       @@@@@@       @@@     @@     @@@ @@        @@           @@
+//@@@@@@@@@@@@@@@@@@@@@@@@            @@       @@  @@@@@@@@@@@  @@@@@@@@@@@  @@@@@@@@@@@      @@     @@@ @@@@@@@@@@@  @@@@@@@@@@@@
+//
+//   stereo_node.cpp
+//
+//   Description: Stereo ROS2 Jazzy node for ORB-SLAM3 integration.
+//
+//   By: Diego Hernandez <dhernandez@ethz.ch>
+//
+//   Created: 2026/01/26 15:50:15 by Diego Hernandez
+//   Updated: 2026/01/26 15:50:15 by Diego Hernandez
+//
+//********************************************************************************************************************************#
+#include "ros2_orb_slam3/stereo.hpp"
 
-//* Import all necessary modules
-#include "ros2_orb_slam3/stereo.hpp" //* equivalent to orbslam3_ros/include/common.h
-
-//* main
+// Main function
 int main(int argc, char **argv){
     rclcpp::init(argc, argv); // Always the first line, initialize this node
     
     //* Declare a node object
     auto node = std::make_shared<StereoMode>(); 
     
-    rclcpp::spin(node); // Blocking node
+    rclcpp::spin(node); // Keep the node alive and processing callbacks until interrupted
     rclcpp::shutdown();
     return 0;
 }
 
-// ------------------------------------------------------------ EOF ---------------------------------------------
 
 
