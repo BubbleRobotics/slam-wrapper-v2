@@ -5081,7 +5081,7 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, bool bRecInit)
 
     EdgeDvlSingle* ed = nullptr;
 
-    if (pFrame->mbUseDvl){
+    if (pFrame->mbUseDvl && false){
         ed = new EdgeDvlSingle(
             pFrame->mpImuPreintegratedFrame,
             pFp->mLatestDvlPoint,
@@ -5267,7 +5267,7 @@ int Optimizer::PoseInertialOptimizationLastFrame(Frame *pFrame, bool bRecInit)
 
     H.block<24,24>(0,0)+= ei->GetHessian();
 
-    if (pFrame->mbUseDvl) H.block<24,24>(0,0)+= ed->GetHessian();
+    if (pFrame->mbUseDvl && false) H.block<24,24>(0,0)+= ed->GetHessian();
 
     Eigen::Matrix<double,6,6> Hgr = egr->GetHessian();
     H.block<3,3>(9,9) += Hgr.block<3,3>(0,0);
