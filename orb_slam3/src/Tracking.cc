@@ -1535,8 +1535,10 @@ Sophus::SE3f Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat 
     else if(mSensor == System::IMU_STEREO && mpCamera2)
         mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mpCamera,mpCamera2,mTlr,&mLastFrame,*mpImuCalib);
 
+    // if (this->mbUseDvl) std::cout << "mLatestDvlPoint norm: " << mLatestDvlPoint.v.norm() << "\n";
+
     // If there is a DVL measurement: add that to the frame
-    if (this->mbUseDvl){
+    if (this->mbUseDvl && this->mLatestDvlPoint.v.norm() > 0.05){
         mCurrentFrame.mbUseDvl = true;
         mCurrentFrame.mLatestDvlPoint = this->mLatestDvlPoint;
         // std::cout << "Communicated DVL measure to new frame" << std::endl;
@@ -1728,12 +1730,22 @@ void Tracking::PreintegrateIMU()
 
     IMU::Preintegrated* pImuPreintegratedFromLastFrame = nullptr;
 
+    // std::cout << " --- COMPARE PREVIOUS AND CURRNT FRAME  --- \n";
+    // std::cout << "mpPrevFrame->mbUsedDvl: " << mCurrentFrame.mpPrevFrame->mbUseDvl << "\n";
+    // std::cout << "mCurrentFrame.mbUseDvl: " << mCurrentFrame.mbUseDvl << "\n"; 
+    // std::cout << "mpPrevFrame->mLatestDvlPoint: " << mCurrentFrame.mpPrevFrame->mLatestDvlPoint.v << "\n";
+    // std::cout << "mCurrentFrame->mLatestDvlPoint: " << mCurrentFrame.mLatestDvlPoint.v << "\n";
+    // std::cout << "mLatestDvlPoint: " << mLatestDvlPoint.v << "\n";
+    // std::cout << " --- END COMPARE --- \n" << std::endl;
+
     // Call a different constructor depending on whether the DVL is used or not
-    if (this->mbUseDvl){
+    if (mCurrentFrame.mbUseDvl && mCurrentFrame.mpPrevFrame->mbUseDvl){
+        // For using the DVL, we need valid DVL measurements both for this and the previous frame
         // When the DVL is used, a different constructor for the IMU::Preintegrated object is 
         // called that will also be passed the DVL measurements from the previous frame. According
         // to the assumptions in AquaSlam, that is the DVL measurement that is to be used for pre-
         // integrating and getting the DVL position delta.
+
         pImuPreintegratedFromLastFrame = new IMU::Preintegrated(
             mLastFrame.mImuBias,
             mCurrentFrame.mImuCalib,
@@ -1838,26 +1850,34 @@ bool Tracking::PredictStateIMU()
         const Eigen::Vector3f Gz(0, 0, -IMU::GRAVITY_VALUE);
         const float t12 = mCurrentFrame.mpImuPreintegratedFrame->dT;
 
+        // std::cout << "twb1 \n" << twb1 << "\n";
+
         Eigen::Matrix3f Rwb2 = IMU::NormalizeRotation(Rwb1 * mCurrentFrame.mpImuPreintegratedFrame->GetDeltaRotation(mLastFrame.mImuBias));
         
         // Do position and velocity delta with DVL if available:
         Eigen::Vector3f twb2, Vwb2;
         if (this->mbUseDvl){
             // We will need this
+            // std::cout << "DVL motion prediction" << "\n";
             Eigen::Vector3f itid = DVL::Calib::Tid.translation();
             Eigen::Vector3f gyr_bias_est = {mLastFrame.mImuBias.bwx, mLastFrame.mImuBias.bwy, mLastFrame.mImuBias.bwz};
             // Incrementing the IMU body position with the DVL position delta
             twb2 = twb1 + itid - mCurrentFrame.mpImuPreintegratedFrame->GetDeltaRotation(mLastFrame.mImuBias) * itid;
+            // std::cout << "twb2 with rotation component only:\n" << twb2;
+
             twb2 = twb2 + mCurrentFrame.mpImuPreintegratedFrame->GetDvlPositionDelta(gyr_bias_est.cast<double>());
             // Setting the new velocity as the most recent DVL velocity. Convert to IMU body frame Rj * Rid * DjVj
             Vwb2 = Rwb2 * DVL::Calib::Tid.so3().matrix() * mCurrentFrame.mLatestDvlPoint.v;
             // std::cout << "Did DVL pose prediction!!!!!" << std::endl;
+            // std::cout << "gyr_bias_est \n" << gyr_bias_est << std::endl;
         }
         // If there is no DVL: use normal IMU prediction
         else{
             twb2 = twb1 + Vwb1*t12 + 0.5f*t12*t12*Gz+ Rwb1 * mCurrentFrame.mpImuPreintegratedFrame->GetDeltaPosition(mLastFrame.mImuBias);
             Vwb2 = Vwb1 + t12*Gz + Rwb1 * mCurrentFrame.mpImuPreintegratedFrame->GetDeltaVelocity(mLastFrame.mImuBias);
+            // std::cout << "IMU motion prediction" << "\n";
         }
+        // std::cout << "twb2 is \n" << twb2 << std::endl;
         mCurrentFrame.SetImuPoseVelocity(Rwb2,twb2,Vwb2);
 
         mCurrentFrame.mImuBias = mLastFrame.mImuBias;
