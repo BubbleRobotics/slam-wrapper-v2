@@ -254,7 +254,7 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
         // std::cout << "dPdvl prior to update:" << std::endl;
         // std::cout << "[" << dPdvl[0] << " " << dPdvl[1] << " " << dPdvl[2] << "]" << std::endl;
         // Update according to AquaSlam
-        dPdvl = dPdvl + dR * mRid * mvLatestDvlV;
+        dPdvl = dPdvl + dR * mRid * mvLatestDvlV * dt;
     }
 
     // Compute velocity and position parts of matrices A and B (rely on non-updated delta rotation)
@@ -487,6 +487,9 @@ Eigen::Vector3f Preintegrated::GetDvlPositionDelta(const Eigen::Vector3d &b_){
     std::unique_lock<std::mutex> lock(mMutex);
     Eigen::Vector3f dbg;
     dbg << b_[0] - b.bwx, b_[1] - b.bwy, b_[2] - b.bwz;
+    // std::cout << "dbg in GetDvlPositionDelta:\n" << dbg << "\n";
+    // std::cout << "The JPgDvl matrix \n" << JPgDvl << "\n";
+    // std::cout << "dPdvl is \n" << dPdvl << std::endl; 
     return dPdvl + JPgDvl * dbg;
 }
 
