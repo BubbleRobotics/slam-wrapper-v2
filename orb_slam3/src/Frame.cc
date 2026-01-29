@@ -95,6 +95,10 @@ Frame::Frame(const Frame &frame)
     mTimeStereoMatch = frame.mTimeStereoMatch;
     mTimeORB_Ext = frame.mTimeORB_Ext;
 #endif
+
+    // Make sure the DVL attributes are copied as well
+    this->mbUseDvl = frame.mbUseDvl;
+    this->mLatestDvlPoint = frame.mLatestDvlPoint;
 }
 
 
