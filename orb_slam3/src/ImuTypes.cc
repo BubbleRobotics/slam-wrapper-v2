@@ -314,7 +314,9 @@ void Preintegrated::IntegrateNewMeasurement(const Eigen::Vector3f &acceleration,
         // std::cout << "F is \n";
         // std::cout << F << "\n" << std::endl;
 
-        SigmaS = F * SigmaS * F.transpose() + G * mDvlCov * G.transpose();
+        Eigen::DiagonalMatrix<float, 3> GyrCov(Nga.diagonal().head<3>());
+
+        SigmaS = F * SigmaS * F.transpose() + G * GyrCov * G.transpose();
 
         // std::cout << "SigmaS after the update: " << std::endl;
         // std::cout << SigmaS << std::endl << std::endl;
