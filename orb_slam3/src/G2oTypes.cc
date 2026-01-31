@@ -505,6 +505,9 @@ EdgeInertial::EdgeInertial(IMU::Preintegrated *pInt):JRg(pInt->JRg.cast<double>(
             eigs[i]=0;
     Info = es.eigenvectors()*eigs.asDiagonal()*es.eigenvectors().transpose();
     setInformation(Info);
+
+    // Debug print: How big are the entries in this matrix that seems to work fine in SI mode?
+    // std::cout << "EdgeInertial Info matrix: \n" << Info << "\n";
 }
 
 
@@ -528,6 +531,17 @@ void EdgeInertial::computeError()
     const Eigen::Vector3d ev = VP1->estimate().Rwb.transpose()*(VV2->estimate() - VV1->estimate() - g*dt) - dV;
     const Eigen::Vector3d ep = VP1->estimate().Rwb.transpose()*(VP2->estimate().twb - VP1->estimate().twb
                                                                - VV1->estimate()*dt - g*dt*dt/2) - dP;
+
+    // std::cout << "EdgeInertial: \n";
+    // std::cout << "dP preint: [" << dP[0] << " " << dP[1] << " " << dP[2] << "]" << std::endl;
+    // Eigen::Vector3d dP_optvar = VP1->estimate().Rwb.transpose()*(VP2->estimate().twb - VP1->estimate().twb
+    //                                                            - VV1->estimate()*dt - g*dt*dt/2);
+    // std::cout << "dP optvar: [" << dP_optvar[0] << " " << dP_optvar[1] << " " << dP_optvar[2] << "]" << std::endl;
+    // std::cout << "Gyr bias:  [" << b1.bwx << " " << b1.bwy << " " << b1.bwz << "]\n";
+    // std::cout << "IMU pos res:" << ep.norm() << "\n";
+    // std::cout << "er: [" << er[0] << " " << er[1] << " " << er[2] << "]" << std::endl;
+    // std::cout << "ev: [" << ev[0] << " " << ev[1] << " " << ev[2] << "]" << std::endl;
+    // std::cout << "ep: [" << ep[0] << " " << ep[1] << " " << ep[2] << "]" << std::endl;
 
     _error << er, ev, ep;
 }
@@ -605,8 +619,44 @@ EdgeDvlSingle::EdgeDvlSingle(IMU::Preintegrated* pInt, const DVL::Point &vTildeI
     mVTildeI = vTildeI;
     mVTildeJ = vTildeJ;
 
+    std::cout << "v~i: \n" << vTildeI.v << "\n"; 
+    std::cout << "v~j: \n" << vTildeJ.v << "\n"; 
+    std::cout << "Norm v~i: " << vTildeI.v.norm() << "\n";
+
     // Set the the covariance matrix that was computed iteratively in the Preintegrated object
-    Matrix9d Info = mpInt->GetDvlCov().cast<double>();
+    Matrix9d Cov = mpInt->GetDvlCov().cast<double>();
+
+    // std::cout << "Cov matrix:\n" << Cov << std::endl;
+
+    // Add jitter 
+    double eps = 1e-7;
+    Cov += eps * Eigen::Matrix<double, 9, 9>::Identity(); 
+
+    // std::cout << "Cov matrix with jitter:\n" << Cov << std::endl;
+
+    // // ---- DIAGNOSTICS ---- //
+
+    // // Determinant
+    // double detA = Cov.determinant();
+
+    // // Rank (using FullPivLU for robustness)
+    // Eigen::FullPivLU<Eigen::Matrix<double, 9, 9>> lu(Cov);
+    // int rankA = lu.rank();
+
+    // // Condition number (σ_max / σ_min from SVD)
+    // Eigen::JacobiSVD<Eigen::Matrix<double, 9, 9>> svd(Cov, Eigen::ComputeFullU | Eigen::ComputeFullV);
+    // Eigen::VectorXd s = svd.singularValues();
+    // double condA = s(0) / s(s.size() - 1);
+
+    // std::cout << "Determinant:      " << detA << "\n";
+    // std::cout << "Rank:             " << rankA << "\n";
+    // std::cout << "Condition number: " << condA << "\n";
+
+    Matrix9d Info = Cov.inverse();
+
+    // std::cout << "Plain inverse: \n" << Info << std::endl;
+
+    // std::cout << "Cov times Info: \n" << Cov * Info << "\n";
 
     // Ensure symmetry
     Info = (Info+Info.transpose())/2;
@@ -642,21 +692,38 @@ void EdgeDvlSingle::computeError(){
 
     // Delta position from gyroscope and DVL
     Eigen::Vector3d dpij = mpInt->GetDvlPositionDelta(b1).cast<double>();
+
+    // Optimisation variables of the state:
+    Eigen::Matrix3d Ri = VP1->estimate().Rwb;
+    Eigen::Matrix3d Rj = VP2->estimate().Rwb;
+    Eigen::Vector3d pi = VP1->estimate().twb;
+    Eigen::Vector3d pj = VP2->estimate().twb;
+    Eigen::Vector3d vi = VV1->estimate();
+    Eigen::Vector3d vj = VV2->estimate();
     
+    // Extrinsic parameters
     Sophus::SE3f Tid = DVL::Calib::Tid;
     Eigen::Matrix3d Rid = Tid.rotationMatrix().cast<double>();
     Eigen::Vector3d itid = Tid.translation().cast<double>();
 
     // ----------- COMPUTE RESIDUALS ----------- //
 
-    Eigen::Vector3d rvi = mVTildeI.v.cast<double>() - Rid.transpose() * VV1->estimate();
-    Eigen::Vector3d rvj = mVTildeJ.v.cast<double>() - Rid.transpose() * VV2->estimate();
+    // Convention as in Xu et al: The measured quantity minus the physical quantity. Also how 
+    // the corresponding residuals are derived
 
-    Eigen::Matrix3d RjMinusRi = VP2->estimate().Rwb - VP1->estimate().Rwb;
-    Eigen::Vector3d pjMinuspi = VP2->estimate().twb - VP1->estimate().twb;
-    Eigen::Vector3d rpij = dpij - VP1->estimate().Rwb.transpose() * (pjMinuspi + RjMinusRi * itid);
+    Eigen::Vector3d rvi = mVTildeI.v.cast<double>() - Rid.transpose() * Ri.transpose() * vi;
+    Eigen::Vector3d rvj = mVTildeJ.v.cast<double>() - Rid.transpose() * Rj.transpose() * vj;
+    Eigen::Vector3d rpij = dpij - Ri.transpose() * (pj - pi + (Rj - Ri) * itid);
 
-    // std::cout << "Called DVL compute error \n";
+    // std::cout << "DVL preintegrated: \n";
+    // std::cout << "dpij preint: [" << dpij[0] << " " << dpij[1] << " " << dpij[2] << "]" << std::endl;
+    // Eigen::Vector3d dpij_opvar = Ri.transpose() * (pj - pi + (Rj - Ri) * itid);
+    // std::cout << "dpij_optvar: [" << dpij_opvar[0] << " " << dpij_opvar[1] << " " << dpij_opvar[2] << "]" << std::endl;
+    // std::cout << "Gyr bias:    [" << b1[0] << " " << b1[1] << " " << b1[2] << "]\n";
+    // std::cout << "DVL pos res: " << rpij.norm() << std::endl;
+    
+    // std::cout << "rvi: [" << rvi[0] << " " << rvi[1] << " " << rvi[2] << "]" << std::endl;
+    // std::cout << "rvj: [" << rvj[0] << " " << rvj[1] << " " << rvj[2] << "]" << std::endl;
     // std::cout << "rpij: [" << rpij[0] << " " << rpij[1] << " " << rpij[2] << "]" << std::endl;
 
     _error << rvi, rvj, rpij;
@@ -694,12 +761,14 @@ void EdgeDvlSingle::linearizeOplus(){
     // r_pij / delta_pi
     _jacobianOplus[0].block<3,3>(6, 3) = Eigen::MatrixXd::Identity(3, 3);
 
+    // OK
+
     // ----- VELOCITY i ----- //
 
     _jacobianOplus[1].setZero();
 
     // r_vi / delta_vi
-    _jacobianOplus[1].block<3,3>(0, 0) = -Rid.transpose() * Ri.transpose();
+    _jacobianOplus[1].block<3,3>(0, 0) = -Rid.transpose() * Ri.transpose();  // OK
 
     // ----- BIAS delta_b^i_g ----- //
 
