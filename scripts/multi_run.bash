@@ -10,51 +10,77 @@
 #   has to be running in parallel in a separate terminal.
 # - The multi_run_list.txt file must not contain any additional whitespace 
 #   and end with a newline
-N=2
+N=10
+factors=("1.0" "0.1" "0.01" "10.0")
+# factors=("10.0")
 
+for factor in "${factors[@]}"; do
 
-while IFS= read -r NAME; do
+    echo " --- FACTOR ${factor} --- "
 
-    for (( i=1 ; i<=$N ; i++ ));
-    do
+    while IFS= read -r NAME; do
 
-        # Start recorder
-        xterm -e bash -c "source ~/ws_blue/install/setup.bash; exec ros2 run convert_compressed_img save_trajec" &
-        RECORDER_XTERM_PID=$!
-        echo "Recorder xterm PID: $RECORDER_XTERM_PID"
+        echo " -- SEQUENCE ${NAME} -- "
 
-        # Start pipeline
-        xterm -e bash -c "source ~/ws_blue/install/setup.bash; exec ros2 launch ros2_orb_slam3 stereo.launch.py" &
-        PIPELINE_XTERM_PID=$!
-        echo "Pipeline xterm PID: $PIPELINE_XTERM_PID"
-        sleep 2  # give everything a moment to start up
+        # New directory if necessary
+        dirname="/home/ubuntu/ws_blue/data/runs/${NAME}/sidm_dvlcov${factor/./p}"
 
-        # Start rosbag
-        xterm -e bash -c "source ~/ws_blue/install/setup.bash; exec ros2 bag play /home/ubuntu/ws_blue/data/ros2_bags/tank/${NAME}/" &
-        PLAYER_XTERM_PID=$!
-        echo "Player xterm PID: $PLAYER_XTERM_PID"
+        if [ ! -d $dirname ]; then
+            echo "New directory"
+            mkdir -p $dirname
+        else
+            echo "Directory already exists"
+        fi
 
-        # Wait for rosbag to finish
-        wait $PLAYER_XTERM_PID
+        # Make the changes and recompile
+        sed -i "8 s/=[^*]*/=${factor}/" /home/ubuntu/ws_blue/src/slam-wrapper-v2/orb_slam3/src/DvlTypes.cc
+        
+        xterm -e bash -c "cd /home/ubuntu/ws_blue && pwd && colcon build" &
+        BUILDER_PID=$!
+        wait $BUILDER_PID
 
-        echo "Rosbag finished — sending Ctrl-C to recorder process..."
+        for (( i=1 ; i<=$N ; i++ ));
+        do
 
-        # Find the child shell inside the recorder xterm
-        RECORDER_SHELL_PID=$(pgrep -P $RECORDER_XTERM_PID)
+            # Start recorder
+            xterm -e bash -c "source ~/ws_blue/install/setup.bash && ros2 run convert_compressed_img save_trajec" &
+            RECORDER_XTERM_PID=$!
+            echo "Recorder xterm PID: $RECORDER_XTERM_PID"
 
-        # Send Ctrl-C to the process group of the recorder shell
-        kill -SIGINT -$RECORDER_SHELL_PID
+            # Start pipeline
+            xterm -e bash -c "source ~/ws_blue/install/setup.bash && ros2 launch ros2_orb_slam3 stereo.launch.py" &
+            PIPELINE_XTERM_PID=$!
+            echo "Pipeline xterm PID: $PIPELINE_XTERM_PID"
+            sleep 2  # give everything a moment to start up
 
-        # Find the name for the new file
-        count=$(find ~/ws_blue/data/runs/${NAME}/sidm/ -maxdepth 1 -type f | wc -l)
-        next=$((count + 1))
-        formatted=$(printf "%02d" "$next")
+            # Start rosbag
+            xterm -e bash -c "source ~/ws_blue/install/setup.bash && ros2 bag play /home/ubuntu/ws_blue/data/tank/${NAME}/" &
+            PLAYER_XTERM_PID=$!
+            echo "Player xterm PID: $PLAYER_XTERM_PID"
 
-        sleep 4  # Give the ros node time to save the data to a file, before moving that file to the final location
-        mv live_trajec.txt ~/ws_blue/data/runs/${NAME}/sidm/live_trajec_${formatted}.txt && \
+            # Wait for rosbag to finish
+            wait $PLAYER_XTERM_PID
 
-        kill "$PIPELINE_XTERM_PID"
+            echo "Rosbag finished — sending Ctrl-C to recorder process..."
 
-    done
+            # Find the child shell inside the recorder xterm
+            RECORDER_SHELL_PID=$(pgrep -P $RECORDER_XTERM_PID)
 
-done < /home/ubuntu/ws_blue/src/slam-wrapper-v2/scripts/multi_run_list.txt
+            # Send Ctrl-C to the process group of the recorder shell
+            kill -SIGINT -$RECORDER_SHELL_PID
+
+            # Find the name for the new file
+            count=$(find $dirname -maxdepth 1 -type f | wc -l)
+            next=$((count + 1))
+            formatted=$(printf "%02d" "$next")
+
+            sleep 4  # Give the ros node time to save the data to a file, before moving that file to the final location
+            mv live_trajec.txt ${dirname}/live_trajec_${formatted}.txt && \
+
+            kill "$PIPELINE_XTERM_PID"
+
+        done
+
+    done < /home/ubuntu/ws_blue/src/slam-wrapper-v2/scripts/multi_run_list.txt
+
+done
