@@ -5,12 +5,15 @@ trajectories.
 Implemented by clandsmeer
 """
 
-from .evaluate_trajectory_single import TrajectoryEval
-from omegaconf import DictConfig
-from pathlib import Path
 from collections import namedtuple
-import pandas as pd
+from pathlib import Path
+
 import numpy as np
+import pandas as pd
+from omegaconf import DictConfig
+
+from .evaluate_trajectory_single import TrajectoryEval
+
 
 class TrajectoryEvalMulti:
     
@@ -158,6 +161,15 @@ class TrajectoryEvalMulti:
                 rot_err = row["rot_err"]
                 rot_err = np.concatenate([rot_err, rel_err[idx].rot])
                 return rot_err
+            
+            def fill_in_frac_gt_used(row, frac_gt_used):
+                """Function applied to df to fill in frac_gt_used from
+                different pipeline runs"""
+                # What is returned is the new value put into the frac_gt_used column
+                # within the row that was passed as the input.
+                current_array = row["frac_gt_used"]
+                return np.r_[current_array, frac_gt_used] # appending to the current array
+
 
             if self.rte_df is None or not (self.rte_df["gt_name"]==evaluator.seq_name).any():
                 
@@ -173,7 +185,11 @@ class TrajectoryEvalMulti:
                          "eval_setting": evaluator.TrajectoryEval.sensor_config,
                          "subtraj_len": self.cfg.rte.trajec_lengths[i],
                          "pos_err": tup.pos,
-                         "rot_err": tup.rot})
+                         "rot_err": tup.rot,
+                         "frac_gt_used": np.array([evaluator.TrajectoryEval.frac_gt_used])})
+                    
+                    # The frac_gt_used is the same for all the subtrajectory lengths
+                    # since it is a property of the evaluator object itslef (ie. of the pipeline run)
                     
                 # Append the new rows to the dataframe
                 if self.rte_df is not None:
@@ -193,6 +209,12 @@ class TrajectoryEvalMulti:
                 self.rte_df.loc[self.rte_df["gt_name"]==evaluator.seq_name, "rot_err"] \
                     = self.rte_df.loc[self.rte_df["gt_name"]==evaluator.seq_name].apply(
                         fill_in_rot_err, args=(rel_err,), axis=1)
+                
+                self.rte_df.loc[self.rte_df["gt_name"]==evaluator.seq_name, "frac_gt_used"] \
+                    = self.rte_df.loc[self.rte_df["gt_name"]==evaluator.seq_name].apply(
+                        fill_in_frac_gt_used, args=(evaluator.TrajectoryEval.frac_gt_used,), axis=1)
+
+        breakpoint()   
 
         self.rte_df.to_pickle(self.data_dir.joinpath("rte.pkl"))
 
