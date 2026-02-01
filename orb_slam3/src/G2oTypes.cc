@@ -619,9 +619,9 @@ EdgeDvlSingle::EdgeDvlSingle(IMU::Preintegrated* pInt, const DVL::Point &vTildeI
     mVTildeI = vTildeI;
     mVTildeJ = vTildeJ;
 
-    std::cout << "v~i: \n" << vTildeI.v << "\n"; 
-    std::cout << "v~j: \n" << vTildeJ.v << "\n"; 
-    std::cout << "Norm v~i: " << vTildeI.v.norm() << "\n";
+    // std::cout << "v~i: \n" << vTildeI.v << "\n"; 
+    // std::cout << "v~j: \n" << vTildeJ.v << "\n"; 
+    // std::cout << "Norm v~i: " << vTildeI.v.norm() << "\n";
 
     // Set the the covariance matrix that was computed iteratively in the Preintegrated object
     Matrix9d Cov = mpInt->GetDvlCov().cast<double>();
@@ -669,6 +669,7 @@ EdgeDvlSingle::EdgeDvlSingle(IMU::Preintegrated* pInt, const DVL::Point &vTildeI
             eigs[i]=0;
     Info = es.eigenvectors()*eigs.asDiagonal()*es.eigenvectors().transpose();
     setInformation(Info);
+    
 }
 
 void EdgeDvlSingle::computeError(){
