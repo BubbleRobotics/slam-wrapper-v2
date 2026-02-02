@@ -1,7 +1,9 @@
 from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+
 
 def clean_outliers_iqr(df):
     """
@@ -107,13 +109,62 @@ def compare_histograms(df_si, df_sid, mode, bins=30):
         plt.show()
 
 
+def compare_gt_use_histograms(df_si, df_sid, dvlcov):
+
+    sequences = set(df_si["gt_name"]).intersection(set(df_sid["gt_name"]))
+
+    for sequence in sequences:
+        
+        si_frac_gt_used = df_si.loc[df_si["gt_name"]==sequence, "frac_gt_used"].iloc[0]
+        sid_frac_gt_used = df_sid.loc[df_sid["gt_name"]==sequence, "frac_gt_used"].iloc[0]
+
+        # Convert to percent
+        si_frac_gt_used *= 100
+        sid_frac_gt_used *= 100
+
+        m_si = si_frac_gt_used.mean()
+        m_sid = sid_frac_gt_used.mean()
+
+        # ----- PLOTTING ----- #
+
+        # Create figure + axis (OO style)
+        fig, ax = plt.subplots(figsize=(8, 5))
+
+        title = f"Percent Ground Truth Used in {sequence} with DVL Cov {dvlcov}"
+
+        # Specify the bins such that they are evenly spaced
+        bins = np.linspace(0, 100, 11)
+
+        # Histogram for SI
+        ax.hist(si_frac_gt_used, bins=bins, alpha=0.5, color="blue", label="SI")
+        ax.axvline(m_si, color="blue", linestyle="--", linewidth=2,
+                   label=f"SI mean {m_si:.3f} over 10 runs")
+
+        # Histogram for SID
+        ax.hist(sid_frac_gt_used, bins=bins, alpha=0.5, color="orange", label="SID")
+        ax.axvline(m_sid, color="orange", linestyle="--", linewidth=2,
+                   label=f"SID mean {m_sid:.3f} over 10 runs")
+        
+        ax.set_title(title)
+        ax.set_xlabel("Value [%]")
+        ax.set_ylabel("Frequency")
+        ax.legend()
+
+        fig.tight_layout()
+        plt.show()
+
+
 if __name__ == "__main__":
 
-    DIR_SID = Path("/home/ubuntu/ws_blue/data/eval_output/2026-01-22/23-49-37_sid/error_data")
-    DIR_SI = Path("/home/ubuntu/ws_blue/data/eval_output/2026-01-22/23-50-39_si/error_data")
+    DVL_COV = 10.0
 
-    rte_sid = pd.read_pickle(DIR_SID.joinpath("rte.pkl"))
-    rte_si = pd.read_pickle(DIR_SI.joinpath("rte.pkl"))
+    string_conversion = str(DVL_COV).replace(".", "p")
+
+    dir_sid = Path(f"/home/ubuntu/ws_blue/data/eval_output/2026-02-01/sidm_dvlcov{string_conversion}_noWholeTank/error_data")
+    dir_si = Path("/home/ubuntu/ws_blue/data/eval_output/2026-02-01/si_noWholeTank/error_data")
+
+    rte_sid = pd.read_pickle(dir_sid.joinpath("rte.pkl"))
+    rte_si = pd.read_pickle(dir_si.joinpath("rte.pkl"))
 
     # Outlier removed versions
     clean_outliers_iqr(rte_sid)
@@ -123,4 +174,6 @@ if __name__ == "__main__":
     add_median(rte_si)
     add_median(rte_sid)
 
-    compare_histograms(rte_si, rte_sid, "pos_no", 200)
+    compare_histograms(rte_si, rte_sid, "rot_no", 50)
+
+    # compare_gt_use_histograms(rte_si, rte_sid, 10)
