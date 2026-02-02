@@ -214,8 +214,6 @@ class TrajectoryEvalMulti:
                     = self.rte_df.loc[self.rte_df["gt_name"]==evaluator.seq_name].apply(
                         fill_in_frac_gt_used, args=(evaluator.TrajectoryEval.frac_gt_used,), axis=1)
 
-        breakpoint()   
-
         self.rte_df.to_pickle(self.data_dir.joinpath("rte.pkl"))
 
     def align(self):
