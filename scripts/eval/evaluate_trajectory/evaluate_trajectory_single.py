@@ -9,12 +9,13 @@ by Zhang and Scaramuzza, "A Tutorial on Quantitative Trajectory Evaluation for V
 Implementation by clandsmeer
 """
 
-from matplotlib import pyplot as plt
-from pathlib import Path
-import numpy as np
-from scipy.spatial.transform import Rotation
-from scipy.optimize import minimize_scalar
 from collections import namedtuple
+from pathlib import Path
+
+import numpy as np
+from matplotlib import pyplot as plt
+from scipy.optimize import minimize_scalar
+from scipy.spatial.transform import Rotation
 
 
 class TrajectoryEval:
@@ -71,10 +72,12 @@ class TrajectoryEval:
 
         # ---------- LOAD EST. TRAJECTORY FROM FILE ---------- #
 
+        print(f"Evaluate trajectory: {odometry_path}")
+
         self.odometry_path = Path(odometry_path)
         gt_file_path = Path(gt_path)
-
-        trajec = np.loadtxt(self.odometry_path.as_posix())
+        
+        trajec = np.loadtxt(self.odometry_path.as_posix(), skiprows=1)
         gt = np.loadtxt(gt_file_path.as_posix())
 
         # How many ground truth poses are in the file
@@ -84,7 +87,11 @@ class TrajectoryEval:
         self.gt_length = None
 
         # Align trajectory and ground truth poses by time stamp
-        trajec, gt = self.time_align(trajec, gt, threshold=0.001)
+        trajec, gt = self.time_align(trajec, gt, threshold=0.05)
+
+        if trajec.shape[0] == 0:
+            print("No timestamp matches between trajectory and ground truth." +
+                  "Did you specify the right trajectory and ground truth to compare?")
 
         self.n_poses = gt.shape[0]
 
