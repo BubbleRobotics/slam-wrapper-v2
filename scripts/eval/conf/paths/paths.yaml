@@ -6,30 +6,69 @@
 
 tank:
   gt:
-    HalfTank_Easy: "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/HalfTank_Easy/gt_data.txt"
-    HalfTank_Hard: "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/HalfTank_Hard/gt_data.txt"
-    HalfTank_Medium: "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/HalfTank_Medium/gt_data.txt"
-    Structure_Easy: "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/Structure_Easy/gt_data.txt"
-    Structure_Hard: "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/Structure_Hard/gt_data.txt"
-    Structure_Medium: "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/Structure_Medium/gt_data.txt"
-    WholeTank_Hard: "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/WholeTank_Hard/gt_data.txt"
-    WholeTank_Medium: "/home/ubuntu/ws_blue/data/ros2_bags/tank/gt/WholeTank_Medium/gt_data.txt"
+    HalfTank_Easy: "/home/ubuntu/ws_blue/data/tank/gt/HalfTank_Easy/gt_data.txt"
+    HalfTank_Hard: "/home/ubuntu/ws_blue/data/tank/gt/HalfTank_Hard/gt_data.txt"
+    HalfTank_Medium: "/home/ubuntu/ws_blue/data/tank/gt/HalfTank_Medium/gt_data.txt"
+    Structure_Easy: "/home/ubuntu/ws_blue/data/tank/gt/Structure_Easy/gt_data.txt"
+    Structure_Hard: "/home/ubuntu/ws_blue/data/tank/gt/Structure_Hard/gt_data.txt"
+    Structure_Medium: "/home/ubuntu/ws_blue/data/tank/gt/Structure_Medium/gt_data.txt"
+    WholeTank_Hard: "/home/ubuntu/ws_blue/data/tank/gt/WholeTank_Hard/gt_data.txt"
+    WholeTank_Medium: "/home/ubuntu/ws_blue/data/tank/gt/WholeTank_Medium/gt_data.txt"
   run:
     s: 
+      # HalfTank_Easy: "/home/ubuntu/ws_blue/data/pipeline_runs/tank/HalfTank_Easy/stereo_only/live_trajec"
+      # HalfTank_Hard: "/home/ubuntu/ws_blue/data/pipeline_runs/tank/HalfTank_Hard/stereo_only/live_trajec"
+      # HalfTank_Medium: "/home/ubuntu/ws_blue/data/pipeline_runs/tank/HalfTank_Medium/stereo_only/live_trajec"
       Structure_Easy: "/home/ubuntu/ws_blue/data/runs/Structure_Easy/s"
+      # Structure_Hard: "/home/ubuntu/ws_blue/data/pipeline_runs/tank/Structure_Hard/stereo_only/live_trajec"
+      # Structure_Medium: "/home/ubuntu/ws_blue/data/pipeline_runs/tank/Structure_Medium/stereo_only/live_trajec"
+      # WholeTank_Hard: "/home/ubuntu/ws_blue/data/pipeline_runs/tank/WholeTank_Hard/stereo_only/live_trajec"
+      # WholeTank_Medium: "/home/ubuntu/ws_blue/data/pipeline_runs/tank/WholeTank_Medium/stereo_only/live_trajec"
 
     si:
+      HalfTank_Easy: "/home/ubuntu/ws_blue/data/runs/HalfTank_Easy/si"
+      HalfTank_Hard: "/home/ubuntu/ws_blue/data/runs/HalfTank_Hard/si"
+      HalfTank_Medium: "/home/ubuntu/ws_blue/data/runs/HalfTank_Medium/si"
       Structure_Easy: "/home/ubuntu/ws_blue/data/runs/Structure_Easy/si"
       Structure_Hard: "/home/ubuntu/ws_blue/data/runs/Structure_Hard/si"
       Structure_Medium: "/home/ubuntu/ws_blue/data/runs/Structure_Medium/si"
-      HalfTank_Easy: "/home/ubuntu/ws_blue/data/runs/HalfTank_Easy/si"
-      HalfTank_Medium: "/home/ubuntu/ws_blue/data/runs/HalfTank_Medium/si"
-      HalfTank_Hard: "/home/ubuntu/ws_blue/data/runs/HalfTank_Hard/si"
 
-    sid:
-      Structure_Easy: "/home/ubuntu/ws_blue/data/runs/Structure_Easy/sid"
-      Structure_Medium: "/home/ubuntu/ws_blue/data/runs/Structure_Medium/sid"
-      Structure_Hard: "/home/ubuntu/ws_blue/data/runs/Structure_Hard/sid"
-      HalfTank_Easy: "/home/ubuntu/ws_blue/data/runs/HalfTank_Easy/sid"
-      HalfTank_Medium: "/home/ubuntu/ws_blue/data/runs/HalfTank_Medium/sid"
-      HalfTank_Hard: "/home/ubuntu/ws_blue/data/runs/HalfTank_Hard/sid"
+    sidm_dvlcov0p01:
+      HalfTank_Easy: "/home/ubuntu/ws_blue/data/runs/HalfTank_Easy/sidm_dvlcov0p01"
+      HalfTank_Hard: "/home/ubuntu/ws_blue/data/runs/HalfTank_Hard/sidm_dvlcov0p01"
+      HalfTank_Medium: "/home/ubuntu/ws_blue/data/runs/HalfTank_Medium/sidm_dvlcov0p01"
+      Structure_Easy: "/home/ubuntu/ws_blue/data/runs/Structure_Easy/sidm_dvlcov0p01"
+      Structure_Hard: "/home/ubuntu/ws_blue/data/runs/Structure_Hard/sidm_dvlcov0p01"
+      Structure_Medium: "/home/ubuntu/ws_blue/data/runs/Structure_Medium/sidm_dvlcov0p01"
+
+    sidm_dvlcov0p1:
+      HalfTank_Easy: "/home/ubuntu/ws_blue/data/runs/HalfTank_Easy/sidm_dvlcov0p1"
+      HalfTank_Hard: "/home/ubuntu/ws_blue/data/runs/HalfTank_Hard/sidm_dvlcov0p1"
+      HalfTank_Medium: "/home/ubuntu/ws_blue/data/runs/HalfTank_Medium/sidm_dvlcov0p1"
+      Structure_Easy: "/home/ubuntu/ws_blue/data/runs/Structure_Easy/sidm_dvlcov0p1"
+      Structure_Hard: "/home/ubuntu/ws_blue/data/runs/Structure_Hard/sidm_dvlcov0p1"
+      Structure_Medium: "/home/ubuntu/ws_blue/data/runs/Structure_Medium/sidm_dvlcov0p1"
+
+    sidm_dvlcov1p0:
+      HalfTank_Easy: "/home/ubuntu/ws_blue/data/runs/HalfTank_Easy/sidm_dvlcov1p0"
+      HalfTank_Hard: "/home/ubuntu/ws_blue/data/runs/HalfTank_Hard/sidm_dvlcov1p0"
+      HalfTank_Medium: "/home/ubuntu/ws_blue/data/runs/HalfTank_Medium/sidm_dvlcov1p0"
+      Structure_Easy: "/home/ubuntu/ws_blue/data/runs/Structure_Easy/sidm_dvlcov1p0"
+      Structure_Hard: "/home/ubuntu/ws_blue/data/runs/Structure_Hard/sidm_dvlcov1p0"
+      Structure_Medium: "/home/ubuntu/ws_blue/data/runs/Structure_Medium/sidm_dvlcov1p0"
+
+    sidm_dvlcov10p0:
+      HalfTank_Easy: "/home/ubuntu/ws_blue/data/runs/HalfTank_Easy/sidm_dvlcov10p0"
+      HalfTank_Hard: "/home/ubuntu/ws_blue/data/runs/HalfTank_Hard/sidm_dvlcov10p0"
+      HalfTank_Medium: "/home/ubuntu/ws_blue/data/runs/HalfTank_Medium/sidm_dvlcov10p0"
+      Structure_Easy: "/home/ubuntu/ws_blue/data/runs/Structure_Easy/sidm_dvlcov10p0"
+      Structure_Hard: "/home/ubuntu/ws_blue/data/runs/Structure_Hard/sidm_dvlcov10p0"
+      Structure_Medium: "/home/ubuntu/ws_blue/data/runs/Structure_Medium/sidm_dvlcov10p0"
+
+    sidm_dvlcov15p0:
+      HalfTank_Easy: "/home/ubuntu/ws_blue/data/runs/HalfTank_Easy/sidm_dvlcov15p0"
+      HalfTank_Hard: "/home/ubuntu/ws_blue/data/runs/HalfTank_Hard/sidm_dvlcov15p0"
+      HalfTank_Medium: "/home/ubuntu/ws_blue/data/runs/HalfTank_Medium/sidm_dvlcov15p0"
+      Structure_Easy: "/home/ubuntu/ws_blue/data/runs/Structure_Easy/sidm_dvlcov15p0"
+      Structure_Hard: "/home/ubuntu/ws_blue/data/runs/Structure_Hard/sidm_dvlcov15p0"
+      Structure_Medium: "/home/ubuntu/ws_blue/data/runs/Structure_Medium/sidm_dvlcov15p0"
