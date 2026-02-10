@@ -9,12 +9,13 @@ by Zhang and Scaramuzza, "A Tutorial on Quantitative Trajectory Evaluation for V
 Implementation by clandsmeer
 """
 
-from matplotlib import pyplot as plt
-from pathlib import Path
-import numpy as np
-from scipy.spatial.transform import Rotation
-from scipy.optimize import minimize_scalar
 from collections import namedtuple
+from pathlib import Path
+
+import numpy as np
+from matplotlib import pyplot as plt
+from scipy.optimize import minimize_scalar
+from scipy.spatial.transform import Rotation
 
 
 class TrajectoryEval:
