@@ -38,7 +38,6 @@
 #include "std_msgs/msg/float64.hpp"
 #include <std_msgs/msg/string.hpp>
 #include <std_msgs/msg/bool.hpp>
-#include "sensor_msgs/msg/image.hpp"
 #include <sensors_msgs/msg/dvl.hpp>  // include the custom DVL message that seems to work better with ros2 bag play than dvl_msgs/msg/dvl.hpp
 #include <message_filters/subscriber.h>
 #include <message_filters/sync_policies/approximate_time.h>
