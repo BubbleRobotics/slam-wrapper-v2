@@ -43,8 +43,6 @@
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/synchronizer.h>
 #include "sensor_msgs/msg/imu.hpp"
-#include <dvl_msgs/msg/dvl.hpp> // For the DVL message type
-//#include <sensors_msgs/msg/dvl.hpp>  
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
